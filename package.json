@@ -27,13 +27,17 @@
     "express-static-gzip": "~0.3.2",
     "fast-json-patch": "^2.0.5",
     "joi": "^13.4.0",
+    "jsonwebtoken": "^8.5.1",
     "jwt-decode": "^2.2.0",
     "lodash": "^4.17.10",
     "lodash-es": "^4.17.10",
     "lusca": "^1.4.1",
     "method-override": "^2.3.10",
     "mongoose": "^5.1.5",
+    "mongoose-findorcreate": "^3.0.0",
     "morgan": "^1.9.0",
+    "passport": "^0.4.1",
+    "passport-facebook": "^3.0.0",
     "serve-favicon": "^2.3.0"
   },
   "devDependencies": {

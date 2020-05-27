@@ -7,7 +7,7 @@ import path from 'path';
 
 export default function(app) {
     // Insert routes below
-    app.use('/api/orders', require('./api/orders'));
+    app.use('/api/Oauths', require('./api/Oauth'));
 
     // All undefined asset or api routes should return a 404
     app.route('/:url(api|auth|components|app|bower_components|assets)/*')

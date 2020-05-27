@@ -4,6 +4,7 @@
 
 import express from 'express';
 import mongoose from 'mongoose';
+let passport = require('passport');
 
 mongoose.Promise = require('bluebird');
 import config from './config/environment';
@@ -25,6 +26,9 @@ mongoose.connection.on('error', function(err) {
 var app = express();
 app.use(cors());
 var server = http.createServer(app);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 expressConfig(app);
 registerRoutes(app);

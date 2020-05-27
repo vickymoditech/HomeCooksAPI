@@ -1,12 +1,12 @@
 /**
- * Orders model events
+ * Oauth model events
  */
 
 import {EventEmitter} from 'events';
-var OrdersEvents = new EventEmitter();
+var OauthEvents = new EventEmitter();
 
 // Set max event listeners (0 == unlimited)
-OrdersEvents.setMaxListeners(0);
+OauthEvents.setMaxListeners(0);
 
 // Model events
 var events = {
@@ -15,19 +15,19 @@ var events = {
 };
 
 // Register the event emitter to the model events
-function registerEvents(Orders) {
+function registerEvents(Oauth) {
   for(var e in events) {
     let event = events[e];
-    Orders.post(e, emitEvent(event));
+    Oauth.post(e, emitEvent(event));
   }
 }
 
 function emitEvent(event) {
   return function(doc) {
-    OrdersEvents.emit(event + ':' + doc._id, doc);
-    OrdersEvents.emit(event, doc);
+    OauthEvents.emit(event + ':' + doc._id, doc);
+    OauthEvents.emit(event, doc);
   };
 }
 
 export {registerEvents};
-export default OrdersEvents;
+export default OauthEvents;
