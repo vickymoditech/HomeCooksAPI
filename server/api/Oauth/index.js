@@ -1,5 +1,3 @@
-import validations from './validation';
-import {errorJsonResponse} from '../../config/commonHelper';
 import Oauth from './Oauth.model';
 import config from '../../config/environment';
 
@@ -42,21 +40,8 @@ passport.use(new FacebookStrategy({
     }
 ));
 
-router.get('/facebook', passport.authenticate('facebook'));
+router.get('/facebook', passport.authenticate('facebook', {authType: 'rerequest', scope: config.FbAPP.scope}));
 
 router.get('/facebook/callback', passport.authenticate('facebook', {failureRedirect: config.FbAPP.failURL}), controller.facebookCallback);
-
-router.use(function(err, req, res, next) {
-    let arrayMessages = [];
-    let allErrorField;
-    for(let i = 0; i < err.errors.length; i++) {
-        let Single_error = err.errors[i].messages.toString()
-            .replace(/"/g, '');
-        arrayMessages.push(Single_error);
-    }
-    allErrorField = arrayMessages.join(',');
-    res.status(400)
-        .json(errorJsonResponse(allErrorField, allErrorField));
-});
 
 module.exports = router;

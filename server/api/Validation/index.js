@@ -1,5 +1,6 @@
-let jwtDecode = require('jwt-decode');
-//import Joi from 'joi';
+import jwt from 'jsonwebtoken';
+import {jwtdata} from '../../config/commonHelper';
+import Joi from 'joi';
 
 export default {
     // route middleware to verify a token
@@ -26,29 +27,32 @@ export default {
         // decode token
         if(token) {
             // verifies secret and checks exp
-            const decode = jwtDecode(token);
-            if(decode) {
-                if(decode.isAdmin) {
-                    req.decoded = decode;
-                    next();
-                } else {
-                    let statusCode = 403;
+            jwt.verify(token, jwtdata.jwtSecretKey, function(err, decoded) {
+                if(err) {
+                    let statusCode = 401;
                     return res.status(statusCode)
                         .json({
-                            user_msg: 'UnAuthorized user.',
-                            dev_msg: 'UnAuthorized user.',
+                            user_msg: 'Failed to authenticate token.',
+                            dev_msg: 'Failed to authenticate token.',
                         });
+                } else {
+                    // if everything is good, save to request for use in other routes
+                    if(decoded.user.Block === false) {
+                        req.decoded = decoded;
+                        next();
+                    } else {
+                        let statusCode = 403;
+                        return res.status(statusCode)
+                            .json({
+                                user_msg: 'UnAuthorized user.',
+                                dev_msg: 'UnAuthorized user.',
+                            });
+                    }
                 }
-            } else {
-                let statusCode = 401;
-                return res.status(statusCode)
-                    .json({
-                        user_msg: 'Failed to authenticate token.',
-                        dev_msg: 'Failed to authenticate token.',
-                    });
-            }
+            });
         } else {
             // if there is no token
+            // return an error
             let statusCode = 401;
             return res.status(statusCode)
                 .json({

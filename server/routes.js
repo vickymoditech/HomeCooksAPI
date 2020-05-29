@@ -4,9 +4,11 @@
 
 import errors from './components/errors';
 import path from 'path';
+import CronJob from './api/CronJob';
 
 export default function(app) {
     // Insert routes below
+    app.use('/api/keywords', require('./api/keyword'));
     app.use('/api/Oauths', require('./api/Oauth'));
 
     // All undefined asset or api routes should return a 404

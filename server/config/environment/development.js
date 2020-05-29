@@ -10,11 +10,27 @@ module.exports = {
     },
 
     FbAPP: {
-        AppId: '841493816358784',
-        AppSecret: '922620654211668e99e0b4d4b6e2a4f5',
+        AppId: '859751524545101',
+        AppSecret: '17256a829c096c13ccd6d0a33c7a3ec6',
         callbackURL: 'http://localhost:9000/api/Oauths/facebook/callback',
         successURL: 'http://localhost:3000/connect/facebook',
-        failURL: 'http://localhost:3000/login'
+        failURL: 'http://localhost:3000/login',
+        Base_API_URL: 'https://graph.facebook.com',
+        scope: ['email'
+            , 'pages_manage_cta'
+            , 'pages_manage_instant_articles'
+            , 'pages_show_list'
+            , 'business_management'
+            , 'pages_messaging'
+            , 'pages_messaging_phone_number'
+            , 'pages_messaging_subscriptions'
+            , 'attribution_read'
+            , 'pages_read_engagement'
+            , 'pages_manage_metadata'
+            , 'pages_read_user_content'
+            , 'pages_manage_ads'
+            , 'pages_manage_posts'
+            , 'pages_manage_engagement']
     },
 
 // Seed database on startup
