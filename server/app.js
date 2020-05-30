@@ -5,11 +5,15 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import {socketOpen} from '../server/api/Socket';
+
 let passport = require('passport');
 
 mongoose.Promise = require('bluebird');
 import config from './config/environment';
 import http from 'http';
+
+let https = require('https');
+const fs = require('fs');
 
 import expressConfig from './config/express';
 import registerRoutes from './routes';
@@ -26,13 +30,24 @@ mongoose.connection.on('error', function(err) {
 // Setup server
 var app = express();
 app.use(cors());
-var server = http.createServer(app);
+
+let privateKey = fs.readFileSync('/etc/letsencrypt/live/fblive.thevelocitee.com/privkey.pem').toString();
+let certificate = fs.readFileSync('/etc/letsencrypt/live/fblive.thevelocitee.com/fullchain.pem').toString();
+let credentials = {
+    key: privateKey, cert: certificate,
+    requestCert: false,
+    rejectUnauthorized: true
+};
+
+let server = https.createServer(credentials, app);
+//var server = http.createServer(app);
+
 
 app.use(passport.initialize());
 app.use(passport.session());
 
 socketOpen(server);
-console.log("socket connection successfully created");
+console.log('socket connection successfully created');
 expressConfig(app);
 registerRoutes(app);
 

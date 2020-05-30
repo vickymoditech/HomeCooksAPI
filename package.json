@@ -28,6 +28,7 @@
     "express-static-gzip": "~0.3.2",
     "fast-json-patch": "^2.0.5",
     "fb-page-comment-event": "^1.0.0",
+    "fs": "0.0.1-security",
     "joi": "^13.4.0",
     "jsonwebtoken": "^8.5.1",
     "jwt-decode": "^2.2.0",
