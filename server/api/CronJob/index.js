@@ -61,9 +61,16 @@ setInterval(async() => {
                         const AllKeyWord = getCache(KEY_WORDS);
                         const splitKeyword = singleComment.data.message.toString()
                             .split(' ');
-                        const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0]);
-                        if(matchKeyWord) {
-                            const result = await socketPublishMessage(singleComment.data.pageId, singleComment);
+                        if(splitKeyword.length === 2) {
+                            const splitProductQty = splitKeyword[1].toString()
+                                .toLowerCase()
+                                .split('x');
+                            if(splitProductQty.length === 2) {
+                                const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0] && data.maxQty >= splitProductQty[1]);
+                                if(matchKeyWord) {
+                                    const result = await socketPublishMessage(singleComment.data.pageId, singleComment);
+                                }
+                            }
                         }
                     });
                     return;
