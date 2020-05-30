@@ -12,7 +12,7 @@ module.exports = {
     FbAPP: {
         AppId: '859751524545101',
         AppSecret: '17256a829c096c13ccd6d0a33c7a3ec6',
-        callbackURL: 'https://178.128.20.185:9000/api/Oauths/facebook/callback',
+        callbackURL: 'https://fblive.thevelocitee.com:9000/api/Oauths/facebook/callback',
         successURL: 'https://fblive.thevelocitee.com/connect/facebook',
         failURL: 'https://fblive.thevelocitee.com/login',
         Base_API_URL: 'https://graph.facebook.com',
