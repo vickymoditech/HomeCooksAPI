@@ -6,7 +6,7 @@ let KeywordSchema = new mongoose.Schema({
     keyword: String,
     price: Number,
     stock: Number,
-    replay_message: String,
+    reply_message: String,
     FbPageId: String,
     maxQty: {type: Number, default: 0}
 });

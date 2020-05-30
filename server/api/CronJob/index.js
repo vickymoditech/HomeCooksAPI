@@ -1,6 +1,9 @@
 import FbPages from '../FbPages/fbPages.model';
 import config from '../../config/environment';
 import axios from 'axios/index';
+import {socketPublishMessage} from '../Socket';
+import {getCache, KEY_WORDS} from '../../config/commonHelper';
+import {GetallKeywords} from '../keyword/keyword.controller';
 
 let fbPageCommentEventLib = require('fb-page-comment-event');
 
@@ -8,6 +11,8 @@ let fbPageCommentEventLib = require('fb-page-comment-event');
 let GetAllPages = {
     AllPages: []
 };
+
+const data = GetallKeywords();
 
 setInterval(async() => {
     //Todo Find all Pages
@@ -52,7 +57,15 @@ setInterval(async() => {
                 }, 15 * 1000);
 
                 NewPage.pageCommentEventApp.run((events) => {
-                    console.log('New comment', JSON.stringify(events, null, 2));
+                    events.map(async(singleComment) => {
+                        const AllKeyWord = getCache(KEY_WORDS);
+                        const splitKeyword = singleComment.data.message.toString()
+                            .split(' ');
+                        const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0]);
+                        if(matchKeyWord) {
+                            const result = await socketPublishMessage(singleComment.data.pageId, singleComment);
+                        }
+                    });
                     return;
                 });
 

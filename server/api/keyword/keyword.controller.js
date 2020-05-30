@@ -23,7 +23,7 @@ function handleError(res, statusCode) {
 // Gets a list of Keywords
 export async function index(req, res) {
     try {
-        const GetallKeyword = await GetallKeywords();
+        const GetallKeyword = await GetallKeywords({FbPageId: req.params.id});
         res.status(200)
             .json(GetallKeyword);
     } catch(error) {
@@ -32,9 +32,9 @@ export async function index(req, res) {
     }
 }
 
-async function GetallKeywords() {
+export async function GetallKeywords(query = {}) {
     try {
-        const allKeywords = await Keyword.find()
+        const allKeywords = await Keyword.find(query)
             .exec();
         setCache(KEY_WORDS, allKeywords);
         return allKeywords;

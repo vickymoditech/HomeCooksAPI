@@ -4,6 +4,7 @@
 
 import express from 'express';
 import mongoose from 'mongoose';
+import {socketOpen} from '../server/api/Socket';
 let passport = require('passport');
 
 mongoose.Promise = require('bluebird');
@@ -30,6 +31,8 @@ var server = http.createServer(app);
 app.use(passport.initialize());
 app.use(passport.session());
 
+socketOpen(server);
+console.log("socket connection successfully created");
 expressConfig(app);
 registerRoutes(app);
 
