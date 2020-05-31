@@ -64,7 +64,8 @@ setInterval(async() => {
                             try {
                                 const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0].trim() && data.maxQty >= Number(splitKeyword[1].trim()));
                                 if(matchKeyWord) {
-                                    const result = await socketPublishMessage(singleComment.data.pageId, singleComment);
+                                    let result = await socketPublishMessage(singleComment.data.pageId, singleComment);
+                                    result = await socketPublishMessage("AdminUser", singleComment);
                                 }
                             } catch(error) {
                                 console.log(error);
