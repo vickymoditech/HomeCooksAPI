@@ -58,25 +58,21 @@ setInterval(async() => {
 
                 NewPage.pageCommentEventApp.run((events) => {
                     events.map(async(singleComment) => {
-                        console.log(singleComment);
                         const AllKeyWord = getCache(KEY_WORDS);
-                        const splitKeyword = singleComment.data.message.toString()
-                            .split(' ');
+                        const splitKeyword = singleComment.data.message.toString().split('+');
                         if(splitKeyword.length === 2) {
-                            const splitProductQty = splitKeyword[1].toString()
-                                .toLowerCase()
-                                .split('x');
-                            if(splitProductQty.length === 2) {
-                                const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0] && data.maxQty >= splitProductQty[1]);
+                            try {
+                                const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0].trim() && data.maxQty >= Number(splitKeyword[1].trim()));
                                 if(matchKeyWord) {
                                     const result = await socketPublishMessage(singleComment.data.pageId, singleComment);
                                 }
+                            } catch(error) {
+                                console.log(error);
                             }
                         }
                     });
                     return;
                 });
-
                 GetAllPages.AllPages.push(NewPage);
             }
         });

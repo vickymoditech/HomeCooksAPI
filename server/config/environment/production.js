@@ -19,10 +19,11 @@ module.exports = {
     },
 
     FbAPP: {
-        AppId: '841493816358784',
-        AppSecret: '922620654211668e99e0b4d4b6e2a4f5',
-        callbackURL: 'http://localhost:9000/Oauths/facebook/callback',
-        failURL: 'http://localhost:3000/login'
+        AppId: '566200570964800',
+        AppSecret: '8d50d318ccbbcac250b0aba336653326',
+        callbackURL: 'https://fblive.thevelocitee.com:9000/api/Oauths/facebook/callback',
+        successURL: 'https://fblive.thevelocitee.com/connect/facebook',
+        failURL: 'https://fblive.thevelocitee.com/login',
     },
 
 };

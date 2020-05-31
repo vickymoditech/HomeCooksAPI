@@ -1,7 +1,7 @@
 import Oauth from './Oauth.model';
 import FbPages from '../FbPages/fbPages.model';
 import config from '../../config/environment';
-import {jwtdata} from '../../config/commonHelper';
+import {jwtdata, errorJsonResponse} from '../../config/commonHelper';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
 
@@ -41,5 +41,57 @@ export async function facebookCallback(req, res, next) {
     } catch(error) {
         console.log(error);
         res.redirect(config.FbAPP.failURL);
+    }
+}
+
+export function login(req, res) {
+    try {
+        if(req.body) {
+            let pass;
+            let userId;
+            let check_field = true;
+
+            if(req.body.userId) {
+                userId = req.body.userId;
+                if(req.body.password) {
+                    pass = req.body.password;
+                } else {
+                    check_field = false;
+                    res.status(500)
+                        .json(errorJsonResponse('password is required', 'password is required'));
+                }
+            } else {
+                check_field = false;
+                res.status(500)
+                    .json(errorJsonResponse('userId is required', 'userId is required'));
+            }
+
+            if(check_field) {
+                Oauth.findOne({userName: userId, password: pass, Block: false}, {_id: 0, __v: 0})
+                    .exec(async function(err, loginUser) {
+                        if(!err) {
+                            if(loginUser) {
+                                let expiresIn = 60 * 60 * 24; // expires in 24 hours
+                                const UserPages = await FbPages.find({}, {FbPageId: 1, FbPageName: 1, FbAccessToken: 1})
+                                    .exec();
+                                let accessToken = jwt.sign({user: loginUser, UserPages}, jwtdata.jwtSecretKey, {
+                                    expiresIn: expiresIn
+                                });
+                                res.status(200)
+                                    .json({accessToken});
+                            } else {
+                                res.status(400)
+                                    .json(errorJsonResponse('Invalid user', 'Invalid user'));
+                            }
+                        } else {
+                            res.status(400)
+                                .json(errorJsonResponse(err, 'sorry, come to the shop.'));
+                        }
+                    });
+            }
+        }
+    } catch(error) {
+        res.status(501)
+            .json(errorJsonResponse(error.toString(), error.toString()));
     }
 }

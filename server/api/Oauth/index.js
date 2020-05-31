@@ -44,4 +44,6 @@ router.get('/facebook', passport.authenticate('facebook', {authType: 'rerequest'
 
 router.get('/facebook/callback', passport.authenticate('facebook', {failureRedirect: config.FbAPP.failURL}), controller.facebookCallback);
 
+router.post('/login', controller.login);
+
 module.exports = router;

@@ -10,7 +10,10 @@ let OauthSchema = new mongoose.Schema({
     LastName: String,
     Block: {type: Boolean, default: true},
     Password: String,
-    Provider: String
+    Provider: String,
+    is_admin: {type: Boolean, default: false},
+    userName: {type: String, default: ''},
+    password: {type: String, default: ''}
 });
 
 OauthSchema.plugin(findOrCreate);
