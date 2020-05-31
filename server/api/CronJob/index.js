@@ -62,10 +62,10 @@ setInterval(async() => {
                         const splitKeyword = singleComment.data.message.toString().split('+');
                         if(splitKeyword.length === 2) {
                             try {
-                                const matchKeyWord = AllKeyWord.find((data) => data.keyword === splitKeyword[0].trim() && data.maxQty >= Number(splitKeyword[1].trim()));
+                                const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === singleComment.data.pageId && data.keyword === splitKeyword[0].trim() && data.maxQty >= Number(splitKeyword[1].trim()));
                                 if(matchKeyWord) {
                                     let result = await socketPublishMessage(singleComment.data.pageId, singleComment);
-                                    result = await socketPublishMessage("AdminUser", singleComment);
+                                    result = await socketPublishMessage('AdminUser', singleComment);
                                 }
                             } catch(error) {
                                 console.log(error);
