@@ -58,6 +58,7 @@ setInterval(async() => {
 
                 NewPage.pageCommentEventApp.run((events) => {
                     events.map(async(singleComment) => {
+                        console.log(singleComment);
                         const AllKeyWord = getCache(KEY_WORDS);
                         const splitKeyword = singleComment.data.message.toString()
                             .split(' ');
