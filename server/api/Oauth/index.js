@@ -29,7 +29,8 @@ passport.use(new FacebookStrategy({
             LastName: profile._json.last_name,
             email: profile._json.email,
             Password: '',
-            Provider: profile.provider
+            Provider: profile.provider,
+            userName: profile.id
         }, function(err, userProfile) {
             const user = {
                 accessToken,
