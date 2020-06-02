@@ -4,6 +4,7 @@ import axios from 'axios/index';
 import {socketPublishMessage} from '../Socket';
 import {getCache, KEY_WORDS} from '../../config/commonHelper';
 import {GetallKeywords} from '../keyword/keyword.controller';
+import Order from '../Order/Order.model';
 
 let fbPageCommentEventLib = require('fb-page-comment-event');
 
@@ -67,9 +68,32 @@ setInterval(async() => {
                             try {
                                 const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === singleComment.data.pageId && data.keyword === splitKeyword[0].trim() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
                                 if(matchKeyWord) {
-                                    let result = await socketPublishMessage(singleComment.data.pageId, singleComment);
-                                    result = await socketPublishMessage('AdminUser', singleComment);
-                                    result = await sendMessageToUser(singleComment.data.pageId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, Number(splitKeyword[1].trim()), matchKeyWord.price, matchKeyWord.reply_message);
+                                    //Todo save order.
+                                    if(singleComment.data.from !== null && singleComment.data.from !== undefined) {
+                                        const qty = Number(splitKeyword[1].trim());
+                                        const order = new Order({
+                                            FbSPID: singleComment.data.from.id,
+                                            FbPageId: singleComment.data.pageId,
+                                            Items: [{
+                                                itemName: matchKeyWord.description,
+                                                qty: qty,
+                                                price: matchKeyWord.price,
+                                                total: (matchKeyWord.price * qty)
+                                            }],
+                                            Name: singleComment.data.from.name,
+                                            Total: (matchKeyWord.price * qty)
+                                        });
+                                        order.save()
+                                            .then(async function(InsertBookingItems, err) {
+                                                if(!err) {
+                                                    let result = await socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
+                                                    result = await socketPublishMessage('AdminUser', InsertBookingItems);
+                                                    result = await sendMessageToUser(singleComment.data.pageId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
+                                                } else {
+                                                    console.log(JSON.stringify(err));
+                                                }
+                                            });
+                                    }
                                 }
                             } catch(error) {
                                 console.log(error);
@@ -82,7 +106,7 @@ setInterval(async() => {
             }
         });
     }
-}, 15 * 1000);
+}, 10 * 1000);
 
 
 async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
