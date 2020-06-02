@@ -8,6 +8,7 @@ import CronJob from './api/CronJob';
 
 export default function(app) {
     // Insert routes below
+    app.use('/api/webhook', require('./api/webhook'));
     app.use('/api/keywords', require('./api/keyword'));
     app.use('/api/Oauths', require('./api/Oauth'));
 
