@@ -88,7 +88,7 @@ setInterval(async() => {
                                                 if(!err) {
                                                     let result = await socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
                                                     result = await socketPublishMessage('AdminUser', InsertBookingItems);
-                                                    result = await sendMessageToUser(singleComment.data.pageId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
+                                                    result = await sendMessageToUser(singleComment.data.pageId, singleComment.data.commentId, singleComment.data.postId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
                                                 } else {
                                                     console.log(JSON.stringify(err));
                                                 }
@@ -129,7 +129,7 @@ async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
     }
 }
 
-async function sendMessageToUser(FbPageId, FbPageAccessToken, from, Description, Qty, Price, reply_message) {
+async function sendMessageToUser(FbPageId, CommentId, postId, FbPageAccessToken, from, Description, Qty, Price, reply_message) {
     try {
         if(from !== null && from !== undefined) {
             const messageDetail = 'Order:\n' +
@@ -149,7 +149,7 @@ async function sendMessageToUser(FbPageId, FbPageAccessToken, from, Description,
                 data: {
                     'messaging_type': 'RESPONSE',
                     'recipient': {
-                        'id': from.id
+                        'comment_id': postId + '_' + CommentId
                     },
                     'message': {
                         'text': messageDetail
