@@ -133,9 +133,9 @@ async function sendMessageToUser(FbPageId, CommentId, postId, FbPageAccessToken,
     try {
         if(from !== null && from !== undefined) {
             const messageDetail = 'Order:\n' +
-                Description + '  ' + Qty + '\n' +
+                Description + ' - ' + Qty + '\n' +
                 '\n' +
-                'Total: ' + Price + '\n' +
+                'Total: ' + (Price * Qty) + '\n' +
                 '\n' +
                 'Our admins are processing the order confirmation. \n' +
                 'Please provide us your delivery address and mobile no. if you are first-timer. \n' +
