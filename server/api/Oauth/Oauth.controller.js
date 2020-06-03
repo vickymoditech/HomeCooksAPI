@@ -34,7 +34,7 @@ export async function facebookCallback(req, res, next) {
             });
         }
         const expiresIn = 60 * 60 * 24; // expires in 24 hours
-        const accessToken = jwt.sign({user: UserProfile, UserPages}, jwtdata.jwtSecretKey, {
+        const accessToken = jwt.sign({user: UserProfile}, jwtdata.jwtSecretKey, {
             expiresIn: expiresIn
         });
         res.redirect(config.FbAPP.successURL + '?access_token=' + accessToken);
@@ -72,9 +72,7 @@ export function login(req, res) {
                         if(!err) {
                             if(loginUser) {
                                 let expiresIn = 60 * 60 * 24; // expires in 24 hours
-                                const UserPages = await FbPages.find({}, {FbPageId: 1, FbPageName: 1, FbAccessToken: 1})
-                                    .exec();
-                                let accessToken = jwt.sign({user: loginUser, UserPages}, jwtdata.jwtSecretKey, {
+                                let accessToken = jwt.sign({user: loginUser}, jwtdata.jwtSecretKey, {
                                     expiresIn: expiresIn
                                 });
                                 res.status(200)

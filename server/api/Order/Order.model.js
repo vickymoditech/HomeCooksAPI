@@ -6,7 +6,8 @@ let OrderSchema = new mongoose.Schema({
     FbPageId: String,
     Items: mongoose.Schema.Types.Mixed,
     Name: String,
-    Total: Number
+    Total: Number,
+    Date: Date
 }, {collection: 'fbliveorder'});
 
 registerEvents(OrderSchema);

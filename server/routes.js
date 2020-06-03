@@ -8,6 +8,7 @@ import CronJob from './api/CronJob';
 
 export default function(app) {
     // Insert routes below
+    app.use('/api/FbPages', require('./api/FbPages'));
     app.use('/api/Orders', require('./api/Order'));
     app.use('/api/keywords', require('./api/keyword'));
     app.use('/api/Oauths', require('./api/Oauth'));

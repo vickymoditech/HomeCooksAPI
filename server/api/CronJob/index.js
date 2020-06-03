@@ -2,9 +2,11 @@ import FbPages from '../FbPages/fbPages.model';
 import config from '../../config/environment';
 import axios from 'axios/index';
 import {socketPublishMessage} from '../Socket';
-import {getCache, KEY_WORDS} from '../../config/commonHelper';
+import {getCache, KEY_WORDS, FB_PAGES} from '../../config/commonHelper';
 import {GetallKeywords} from '../keyword/keyword.controller';
+import {GetallFbPages} from '../FbPages/fbPages.controller';
 import Order from '../Order/Order.model';
+let moment = require('moment-timezone');
 
 let fbPageCommentEventLib = require('fb-page-comment-event');
 
@@ -13,7 +15,8 @@ let GetAllPages = {
     AllPages: []
 };
 
-const data = GetallKeywords();
+let data = GetallKeywords();
+data = GetallFbPages();
 
 setInterval(async() => {
     //Todo Find all Pages
@@ -59,45 +62,52 @@ setInterval(async() => {
                 }, 15 * 1000);
 
                 NewPage.pageCommentEventApp.run((events) => {
+                    const AllPagesCache = getCache(FB_PAGES);
                     events.map(async(singleComment) => {
-                        console.log('we got a new comment', JSON.stringify(singleComment));
-                        const AllKeyWord = getCache(KEY_WORDS);
-                        const splitKeyword = singleComment.data.message.toString()
-                            .split('+');
-                        if(splitKeyword.length === 2) {
-                            try {
-                                const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === singleComment.data.pageId && data.keyword === splitKeyword[0].trim() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
-                                if(matchKeyWord) {
-                                    //Todo save order.
-                                    if(singleComment.data.from !== null && singleComment.data.from !== undefined) {
-                                        const qty = Number(splitKeyword[1].trim());
-                                        const order = new Order({
-                                            FbSPID: singleComment.data.from.id,
-                                            FbPageId: singleComment.data.pageId,
-                                            Items: [{
-                                                itemName: matchKeyWord.description,
-                                                qty: qty,
-                                                price: matchKeyWord.price,
-                                                total: (matchKeyWord.price * qty)
-                                            }],
-                                            Name: singleComment.data.from.name,
-                                            Total: (matchKeyWord.price * qty)
-                                        });
-                                        order.save()
-                                            .then(async function(InsertBookingItems, err) {
-                                                if(!err) {
-                                                    let result = await socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
-                                                    result = await socketPublishMessage('AdminUser', InsertBookingItems);
-                                                    result = await sendMessageToUser(singleComment.data.pageId, singleComment.data.commentId, singleComment.data.postId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
-                                                } else {
-                                                    console.log(JSON.stringify(err));
-                                                }
+                        const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === singleComment.data.pageId && singlePageCache.Is_Live === true);
+                        if(SinglePage) {
+                            console.log('we got a new comment', JSON.stringify(singleComment));
+                            const AllKeyWord = getCache(KEY_WORDS);
+                            const splitKeyword = singleComment.data.message.toString()
+                                .split('+');
+                            if(splitKeyword.length === 2) {
+                                try {
+                                    const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === singleComment.data.pageId && data.keyword.toLowerCase() === splitKeyword[0].trim().toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
+                                    if(matchKeyWord) {
+                                        //Todo save order.
+                                        if(singleComment.data.from !== null && singleComment.data.from !== undefined) {
+                                            const qty = Number(splitKeyword[1].trim());
+                                            const order = new Order({
+                                                FbSPID: singleComment.data.from.id,
+                                                FbPageId: singleComment.data.pageId,
+                                                Items: [{
+                                                    itemName: matchKeyWord.description,
+                                                    qty: qty,
+                                                    price: matchKeyWord.price,
+                                                    total: (matchKeyWord.price * qty)
+                                                }],
+                                                Name: singleComment.data.from.name,
+                                                Total: (matchKeyWord.price * qty),
+                                                Date : moment().tz('Asia/Singapore').format("DD-MM-YYYY")
                                             });
+                                            order.save()
+                                                .then(async function(InsertBookingItems, err) {
+                                                    if(!err) {
+                                                        let result = await socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
+                                                        result = await socketPublishMessage('AdminUser', InsertBookingItems);
+                                                        result = await sendMessageToUser(singleComment.data.pageId, singleComment.data.commentId, singleComment.data.postId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
+                                                    } else {
+                                                        console.log(JSON.stringify(err));
+                                                    }
+                                                });
+                                        }
                                     }
+                                } catch(error) {
+                                    console.log(error);
                                 }
-                            } catch(error) {
-                                console.log(error);
                             }
+                        } else {
+                            console.log(`Page is offline ${singleComment.data.pageId}`);
                         }
                     });
                     return;
@@ -111,14 +121,21 @@ setInterval(async() => {
 
 async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
     try {
-        if(!Is_deleted) {
-            const api = {
-                method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPageId}?fields=posts{message,id}&access_token=${FbPageAccessToken}`
-            };
-            const posts = await axios(api);
-            return posts.data.posts.data;
+        const AllPagesCache = getCache(FB_PAGES);
+        const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
+        if(SinglePage) {
+            if(!Is_deleted) {
+                const api = {
+                    method: 'GET',
+                    url: `${config.FbAPP.Base_API_URL}/${FbPageId}?fields=posts{message,id}&access_token=${FbPageAccessToken}`
+                };
+                const posts = await axios(api);
+                return posts.data.posts.data;
+            } else {
+                return null;
+            }
         } else {
+            console.log(`Page is offline ${FbPageId}`);
             return null;
         }
     } catch(error) {
@@ -132,41 +149,38 @@ async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
 async function sendMessageToUser(FbPageId, CommentId, postId, FbPageAccessToken, from, Description, Qty, Price, reply_message) {
     try {
         if(from !== null && from !== undefined) {
-            const messageDetail = 'Order:\n' +
-                Description + ' - ' + Qty + '\n' +
-                '\n' +
-                'Total: ' + (Price * Qty) + '\n' +
-                '\n' +
-                'Our admins are processing the order confirmation. \n' +
-                'Please provide us your delivery address and mobile no. if you are first-timer. \n' +
-                '\n' +
-                '$100 (1 location) for free delivery, else $8 delivery charge applies.   \n' +
-                'Payment Mode - PayNow or Bank Transfer \n\n' +
-                reply_message;
-            const api = {
-                method: 'POST',
-                url: `${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`,
-                data: {
-                    'messaging_type': 'RESPONSE',
-                    'recipient': {
-                        'comment_id': postId + '_' + CommentId
-                    },
-                    'message': {
-                        'text': messageDetail
+            const AllPagesCache = getCache(FB_PAGES);
+            const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
+            if(SinglePage) {
+                const messageDetail = SinglePage.ReplyMessage;
+                const api = {
+                    method: 'POST',
+                    url: `${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`,
+                    data: {
+                        'messaging_type': 'RESPONSE',
+                        'recipient': {
+                            'comment_id': postId + '_' + CommentId
+                        },
+                        'message': {
+                            'text': messageDetail
+                        }
                     }
-                }
-            };
-            axios(api)
-                .then((response) => {
-                    if(response.status === 200) {
-                        console.log(response);
-                    }
-                })
-                .catch((error) => {
-                    console.log(error);
-                    return false;
-                });
-            return true;
+                };
+                axios(api)
+                    .then((response) => {
+                        if(response.status === 200) {
+                            console.log(response);
+                        }
+                    })
+                    .catch((error) => {
+                        console.log(error);
+                        return false;
+                    });
+                return true;
+            } else {
+                console.log(`Page is offline ${FbPageId}`);
+                return false;
+            }
         } else {
             return false;
         }

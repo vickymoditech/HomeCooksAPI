@@ -6,6 +6,7 @@ export const jwtdata = {jwtSecretKey: '12334'};
 
 //Todo Cache Keywords to access it.
 export const KEY_WORDS = 'KEY_WORDS';
+export const FB_PAGES = 'FB_PAGES';
 
 
 //error message response
