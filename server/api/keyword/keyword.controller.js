@@ -23,8 +23,10 @@ function handleError(res, statusCode) {
 // Gets a list of Keywords
 export async function index(req, res) {
     try {
-        const allKeywords = await Keyword.find({FbPageId: req.params.id}).exec();
-        res.status(200).json(allKeywords);
+        const allKeywords = await Keyword.find({FbPageId: req.params.id})
+            .exec();
+        res.status(200)
+            .json(allKeywords);
     } catch(error) {
         res.status(500)
             .json(errorJsonResponse(error.toString(), error.toString()));
@@ -33,7 +35,8 @@ export async function index(req, res) {
 
 export async function GetallKeywords() {
     try {
-        const allKeywords = await Keyword.find({}).exec();
+        const allKeywords = await Keyword.find({})
+            .exec();
         setCache(KEY_WORDS, allKeywords);
         return allKeywords;
     } catch(error) {
@@ -62,6 +65,37 @@ export async function create(req, res) {
     }
 
 }
+
+// Update Keyword in the DB
+export async function update(req, res) {
+    try {
+        Keyword.findOneAndUpdate({_id: req.body._id}, {
+                description: req.body.description,
+                keyword: req.body.keyword,
+                price: req.body.price,
+                stock: req.body.stock,
+                reply_message: req.body.reply_message,
+                FbPageId: req.body.FbPageId,
+                maxQty: req.body.maxQty
+            }, {new: true}
+        )
+            .then(async(UpdateKeywords, err) => {
+                if(!err) {
+                    await GetallKeywords();
+                    res.status(200)
+                        .json({data: UpdateKeywords, result: 'Update Successfully'});
+                } else {
+                    res.status(400)
+                        .json(errorJsonResponse(err.toString(), err.toString()));
+                }
+            });
+    } catch(error) {
+        res.status(500)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+
+}
+
 
 // Deletes a Keyword from the DB
 export function destroy(req, res) {

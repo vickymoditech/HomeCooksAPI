@@ -16,21 +16,13 @@ module.exports = {
         successURL: 'https://fblive.thevelocitee.com/connect/facebook',
         failURL: 'https://fblive.thevelocitee.com/login',
         Base_API_URL: 'https://graph.facebook.com',
-        scope: ['email'
-            , 'pages_manage_cta'
-            , 'pages_manage_instant_articles'
-            , 'pages_show_list'
-            , 'business_management'
-            , 'pages_messaging'
-            , 'pages_messaging_phone_number'
-            , 'pages_messaging_subscriptions'
-            , 'attribution_read'
-            , 'pages_read_engagement'
+        scope: ['pages_show_list'
             , 'pages_manage_metadata'
-            , 'pages_read_user_content'
-            , 'pages_manage_ads'
             , 'pages_manage_posts'
-            , 'pages_manage_engagement']
+            , 'pages_read_engagement'
+            , 'pages_read_user_content'
+            , 'pages_messaging'
+        ]
     },
 
 // Seed database on startup

@@ -8,7 +8,7 @@ let OauthSchema = new mongoose.Schema({
     email: String,
     FirstName: String,
     LastName: String,
-    Block: {type: Boolean, default: true},
+    Block: {type: Boolean, default: false},
     Password: String,
     Provider: String,
     is_admin: {type: Boolean, default: false},
