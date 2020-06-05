@@ -41,6 +41,7 @@ setInterval(async() => {
                     AllPosts: [],
                     pageCommentEventApp
                 };
+                GetAllPages.AllPages.push(NewPage);
                 setInterval(async() => {
                     const AllPosts = await getAllPosts(singlePages.FbPageId, singlePages.FbAccessToken, singlePages.Is_deleted);
                     if(AllPosts !== null && AllPosts.length !== NewPage.AllPosts.length) {
@@ -50,7 +51,8 @@ setInterval(async() => {
                             const findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId[1]) : false;
                             if(!findOldPost) {
                                 console.log('A new Post has been Registered', singlePost.message);
-                                pageCommentEventApp.registerMonitorPost({pageId: postId[0], postId: postId[1]});
+                                let findPage = GetAllPages.AllPages.find((data) => data.FbPageId === postId[0]);
+                                findPage.pageCommentEventApp.registerMonitorPost({pageId: postId[0], postId: postId[1]});
                                 let NewPost = {
                                     FbPostId: postId[1],
                                     FbPostName: singlePost.message,
@@ -112,7 +114,6 @@ setInterval(async() => {
                     });
                     return;
                 });
-                GetAllPages.AllPages.push(NewPage);
             }
         });
     }
