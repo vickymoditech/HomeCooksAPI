@@ -6,6 +6,8 @@ import {getCache, KEY_WORDS, FB_PAGES} from '../../config/commonHelper';
 import {GetallKeywords} from '../keyword/keyword.controller';
 import {GetallFbPages} from '../FbPages/fbPages.controller';
 import Order from '../Order/Order.model';
+import UserDetail from '../UserDetail/UserDetail.model';
+
 let moment = require('moment-timezone');
 
 let fbPageCommentEventLib = require('fb-page-comment-event');
@@ -30,7 +32,7 @@ setInterval(async() => {
                 console.log('A new Page has been Registered', singlePages.FbPageName);
                 const pageCommentEventApp = fbPageCommentEventLib.pageCommentEventApp({
                     accessToken: singlePages.FbAccessToken,
-                    pullInterval: 15 * 1000
+                    pullInterval: 5 * 1000
                 });
                 let NewPage = {
                     FbPageId: singlePages.FbPageId,
@@ -74,34 +76,43 @@ setInterval(async() => {
                                 .split('+');
                             if(splitKeyword.length === 2) {
                                 try {
-                                    const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === singleComment.data.pageId && data.keyword.toLowerCase() === splitKeyword[0].trim().toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
+                                    const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === singleComment.data.pageId && data.keyword.trim()
+                                        .toLowerCase() === splitKeyword[0].trim()
+                                        .toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
                                     if(matchKeyWord) {
                                         //Todo save order.
                                         if(singleComment.data.from !== null && singleComment.data.from !== undefined) {
                                             const qty = Number(splitKeyword[1].trim());
-                                            const order = new Order({
-                                                FbSPID: singleComment.data.from.id,
+                                            //Todo find User and create one
+                                            await UserDetail.findOrCreate({FbSPID: singleComment.data.from.id}, {
                                                 FbPageId: singleComment.data.pageId,
-                                                Items: [{
-                                                    itemName: matchKeyWord.description,
-                                                    qty: qty,
-                                                    price: matchKeyWord.price,
-                                                    total: (matchKeyWord.price * qty)
-                                                }],
                                                 Name: singleComment.data.from.name,
-                                                Total: (matchKeyWord.price * qty),
-                                                Date : moment().tz('Asia/Singapore').format("DD-MM-YYYY")
                                             });
-                                            order.save()
-                                                .then(async function(InsertBookingItems, err) {
-                                                    if(!err) {
-                                                        let result = await socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
-                                                        result = await socketPublishMessage('AdminUser', InsertBookingItems);
-                                                        result = await sendMessageToUser(singleComment.data.pageId, singleComment.data.commentId, singleComment.data.postId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
-                                                    } else {
-                                                        console.log(JSON.stringify(err));
+                                            //Todo find order and create
+                                            let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.data.from.id}, {
+                                                FbPageId: singleComment.data.pageId,
+                                                $push: {
+                                                    Items: {
+                                                        itemName: matchKeyWord.description,
+                                                        qty: qty,
+                                                        price: matchKeyWord.price,
+                                                        total: (matchKeyWord.price * qty)
                                                     }
-                                                });
+                                                },
+                                                Name: singleComment.data.from.name,
+                                                $inc: {Total: (matchKeyWord.price * qty)},
+                                                Date: moment()
+                                                    .tz('Asia/Singapore')
+                                                    .format('DD-MM-YYYY HH:mm')
+                                            }, {upsert: true, new: true});
+
+                                            if(InsertBookingItems) {
+                                                let result = socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
+                                                result = socketPublishMessage('AdminUser', InsertBookingItems);
+                                                result = sendMessageToUser(singleComment.data.pageId, singleComment.data.commentId, singleComment.data.postId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
+                                            } else {
+                                                console.log(JSON.stringify(InsertBookingItems));
+                                            }
                                         }
                                     }
                                 } catch(error) {
