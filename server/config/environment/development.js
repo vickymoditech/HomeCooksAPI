@@ -24,7 +24,7 @@ module.exports = {
     },
 
     logFile: {
-        filePath: homeDir() + '/FbLiveOrder'
+        filePath: '/home/strapi/FbLiveOrder'
     },
 
 // Seed database on startup
