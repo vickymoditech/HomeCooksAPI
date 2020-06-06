@@ -1,7 +1,5 @@
-/*eslint no-process-env:0*/
+let homeDir = require('homedir');
 
-// Development specific configuration
-// ==================================
 module.exports = {
     // MongoDB connection options
     mongo: {
@@ -23,6 +21,10 @@ module.exports = {
             , 'pages_read_user_content'
             , 'pages_messaging'
         ]
+    },
+
+    logFile: {
+        filePath: homeDir() + '/FbLiveOrder'
     },
 
 // Seed database on startup

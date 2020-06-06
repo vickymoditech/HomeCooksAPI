@@ -5,6 +5,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import {socketOpen} from '../server/api/Socket';
+import Log from './config/Log';
 
 let passport = require('passport');
 
@@ -53,8 +54,13 @@ registerRoutes(app);
 
 // Start server
 function startServer() {
+
+    new Log();
+    Log.logInit();
+
     app.angularFullstack = server.listen(config.port, config.ip, function() {
         console.log('Express server listening on %d, in %s mode', config.port, app.get('env'));
+        Log.writeLog(Log.eLogLevel.info, 'Express server listening on ' + config.port + ', in ' + app.get('env') + ' mode');
     });
 }
 

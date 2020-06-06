@@ -2,11 +2,12 @@ import FbPages from '../FbPages/fbPages.model';
 import config from '../../config/environment';
 import axios from 'axios/index';
 import {socketPublishMessage} from '../Socket';
-import {getCache, KEY_WORDS, FB_PAGES} from '../../config/commonHelper';
+import {getCache, KEY_WORDS, FB_PAGES, getGuid, errorJsonResponse} from '../../config/commonHelper';
 import {GetallKeywords} from '../keyword/keyword.controller';
 import {GetallFbPages} from '../FbPages/fbPages.controller';
 import Order from '../Order/Order.model';
 import UserDetail from '../UserDetail/UserDetail.model';
+import Log from '../../config/Log';
 
 let moment = require('moment-timezone');
 
@@ -19,6 +20,7 @@ let GetAllPages = {
 
 let data = GetallKeywords();
 data = GetallFbPages();
+const uniqueId = getGuid();
 
 setInterval(async() => {
     //Todo Find all Pages
@@ -29,7 +31,7 @@ setInterval(async() => {
         AllPages.map(async(singlePages) => {
             const findOldPages = GetAllPages.AllPages.length > 0 ? GetAllPages.AllPages.find((data) => data.FbPageId === singlePages.FbPageId) : false;
             if(!findOldPages) {
-                console.log('A new Page has been Registered', singlePages.FbPageName);
+                Log.writeLog(Log.eLogLevel.info, `[New Page] : ${JSON.stringify(singlePages)}`, uniqueId);
                 const pageCommentEventApp = fbPageCommentEventLib.pageCommentEventApp({
                     accessToken: singlePages.FbAccessToken,
                     pullInterval: 5 * 1000
@@ -52,7 +54,7 @@ setInterval(async() => {
                                 .split('_');
                             const findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId[1]) : false;
                             if(!findOldPost) {
-                                console.log('A new Post has been Registered', singlePost.message);
+                                Log.writeLog(Log.eLogLevel.info, `[New Post] : ${JSON.stringify(singlePost)}`, uniqueId);
                                 let findPage = GetAllPages.AllPages.find((data) => data.FbPageId === postId[0]);
                                 findPage.pageCommentEventApp.registerMonitorPost({pageId: postId[0], postId: postId[1]});
                                 let NewPost = {
@@ -70,7 +72,7 @@ setInterval(async() => {
                     events.map(async(singleComment) => {
                         const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === singleComment.data.pageId && singlePageCache.Is_Live === true);
                         if(SinglePage) {
-                            console.log('we got a new comment', JSON.stringify(singleComment));
+                            Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                             const AllKeyWord = getCache(KEY_WORDS);
                             const splitKeyword = singleComment.data.message.toString()
                                 .split('+');
@@ -110,8 +112,9 @@ setInterval(async() => {
                                                 let result = socketPublishMessage(singleComment.data.pageId, InsertBookingItems);
                                                 result = socketPublishMessage('AdminUser', InsertBookingItems);
                                                 result = sendMessageToUser(singleComment.data.pageId, singleComment.data.commentId, singleComment.data.postId, NewPage.FbAccessToken, singleComment.data.from, matchKeyWord.description, qty, matchKeyWord.price, matchKeyWord.reply_message);
+                                                Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                             } else {
-                                                console.log(JSON.stringify(InsertBookingItems));
+                                                Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                             }
                                         }
                                     }
@@ -154,6 +157,7 @@ async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
         console.log(`getAllPosts - ${FbPageId}`, JSON.stringify(error));
         let FindPage = GetAllPages.AllPages.find((singlePage) => singlePage.FbPageId === FbPageId);
         FindPage.Is_deleted = true;
+        Log.writeLog(Log.eLogLevel.error, `[getAllPosts][${FbPageId}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
         return null;
     }
 }
@@ -178,14 +182,15 @@ async function sendMessageToUser(FbPageId, CommentId, postId, FbPageAccessToken,
                         }
                     }
                 };
+                Log.writeLog(Log.eLogLevel.debug, `[sendMessageToUser] Request URL - ${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`, uniqueId);
                 axios(api)
                     .then((response) => {
                         if(response.status === 200) {
-                            console.log(response);
+                            Log.writeLog(Log.eLogLevel.info, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] postId - [${postId}] message - [${messageDetail}] : ${'success'}`, uniqueId);
                         }
                     })
                     .catch((error) => {
-                        console.log(error);
+                        Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] postId - [${postId}] message - [${messageDetail}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
                         return false;
                     });
                 return true;
@@ -198,6 +203,7 @@ async function sendMessageToUser(FbPageId, CommentId, postId, FbPageAccessToken,
         }
     } catch(error) {
         console.log(error);
+        Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] postId - [${postId}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
         return false;
     }
 }
