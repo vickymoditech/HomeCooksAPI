@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import {registerEvents} from './keyword.events';
+let findOrCreate = require('mongoose-findorcreate');
 
 let KeywordSchema = new mongoose.Schema({
     description: String,
@@ -11,5 +12,6 @@ let KeywordSchema = new mongoose.Schema({
     maxQty: {type: Number, default: 0}
 });
 
+KeywordSchema.plugin(findOrCreate);
 registerEvents(KeywordSchema);
 export default mongoose.model('keywords', KeywordSchema);

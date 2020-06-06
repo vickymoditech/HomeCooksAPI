@@ -10,7 +10,8 @@ let FbPagesSchema = new mongoose.Schema({
     Is_Live: {type: Boolean, default: false},
     ReplyMessage: String,
     OutOfStockMessage: String,
-    PersonalMessage: String
+    PersonalMessage: String,
+    StatusActiveTime: Date
 });
 
 FbPagesSchema.plugin(findOrCreate);

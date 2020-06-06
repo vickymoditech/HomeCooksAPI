@@ -10,4 +10,6 @@ router.post('/status/:FbPageId', validation.validateAuthorization, controller.st
 
 router.post('/MessageFormat/:FbPageId', validation.validateAuthorization, controller.MessageFormat);
 
+router.get('/Message/:FbSPID', validation.validateAuthorization, controller.PersonalMessage);
+
 module.exports = router;
