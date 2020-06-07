@@ -65,7 +65,7 @@ setInterval(async() => {
 
                                         const AllCommentsFilter = AllComments.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
                                             .format() >= moment()
-                                            .subtract((5 * 60), 'seconds')
+                                            .subtract((15 * 60), 'seconds')
                                             .tz('Asia/Singapore')
                                             .format());
 
