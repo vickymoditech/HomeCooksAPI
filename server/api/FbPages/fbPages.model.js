@@ -11,6 +11,7 @@ let FbPagesSchema = new mongoose.Schema({
     ReplyMessage: String,
     OutOfStockMessage: String,
     PersonalMessage: String,
+    MassMessage: String,
     StatusActiveTime: Date
 });
 

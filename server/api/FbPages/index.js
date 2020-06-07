@@ -12,4 +12,6 @@ router.post('/MessageFormat/:FbPageId', validation.validateAuthorization, contro
 
 router.get('/Message/:FbSPID', validation.validateAuthorization, controller.PersonalMessage);
 
+router.get('/All/Message/:FbPageId', validation.validateAuthorization, controller.Messages);
+
 module.exports = router;

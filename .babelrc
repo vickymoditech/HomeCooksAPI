@@ -1,14 +1,18 @@
 {
     "presets": [
-        ["babel-preset-env", {
-            "targets": {
-                "node": "8.11.3"
+        [
+            "babel-preset-env",
+            {
+                "targets": {
+                    "node": "8.11.3"
+                }
             }
-        }]
+        ]
     ],
     "plugins": [
-      "transform-flow-comments",
-      "transform-runtime",
-      "transform-decorators-legacy"
+        "transform-flow-comments",
+        "transform-runtime",
+        "transform-decorators-legacy",
+        "transform-class-properties"
     ]
 }

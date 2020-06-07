@@ -4,6 +4,7 @@ import Order from '../Order/Order.model';
 import config from '../../config/environment';
 import Log from '../../config/Log';
 import axios from 'axios';
+import UserDetail from '../UserDetail/UserDetail.model';
 
 let moment = require('moment-timezone');
 
@@ -20,7 +21,8 @@ export async function index(req, res) {
             Is_Live: 1,
             ReplyMessage: 1,
             OutOfStockMessage: 1,
-            PersonalMessage: 1
+            PersonalMessage: 1,
+            MassMessage: 1
         });
         res.status(200)
             .json(GetallFbPages);
@@ -63,7 +65,8 @@ export async function MessageFormat(req, res, next) {
             $set: {
                 ReplyMessage: req.body.ReplyMessage,
                 OutOfStockMessage: req.body.OutOfStockMessage,
-                PersonalMessage: req.body.PersonalMessage
+                PersonalMessage: req.body.PersonalMessage,
+                MassMessage: req.body.MassMessage,
             }
         });
         await GetallFbPages();
@@ -74,7 +77,8 @@ export async function MessageFormat(req, res, next) {
                     result: {
                         ReplyMessage: req.body.ReplyMessage,
                         OutOfStockMessage: req.body.OutOfStockMessage,
-                        PersonalMessage: req.body.PersonalMessage
+                        PersonalMessage: req.body.PersonalMessage,
+                        MassMessage: req.body.MassMessage
                     }
                 });
         }
@@ -88,18 +92,23 @@ export async function PersonalMessage(req, res, next) {
     try {
         const uniqueId = getGuid();
         const result = await Order.findOne({FbSPID: req.params.FbSPID});
-        console.log(result);
         if(result) {
             const PageResult = await FbPages.findOne({FbPageId: result.FbPageId});
-            console.log(PageResult);
             const FbPageId = PageResult.FbPageId;
             const FBSPID = req.params.FbSPID;
-            const messageDetail = PageResult.PersonalMessage;
+            let messageDetail = PageResult.PersonalMessage;
+            let orderDetail = '';
+            result.Items.map((singleItem) => {
+                orderDetail += `- ${singleItem.itemName} : x ${singleItem.qty} : ${singleItem.total} \n    `;
+            });
+            messageDetail = messageDetail.replace('{order detail}', orderDetail);
+            messageDetail = messageDetail.replace('{shoppingcartlink}', config.FbAPP.ShoppingLink);
             const api = {
                 method: 'POST',
                 url: `${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`,
                 data: {
-                    'messaging_type': 'RESPONSE',
+                    'messaging_type': 'MESSAGE_TAG',
+                    'tag': 'CONFIRMED_EVENT_UPDATE',
                     'recipient': {
                         'id': FBSPID
                     },
@@ -112,6 +121,10 @@ export async function PersonalMessage(req, res, next) {
                 .then((response) => {
                     if(response.status === 200) {
                         Log.writeLog(Log.eLogLevel.info, `[sendMessageToUser] PageId - [${FbPageId}] FBSPID - [${FBSPID}] message - [${messageDetail}] : ${'success'}`, uniqueId);
+                        res.status(200)
+                            .json({
+                                result: 'successfully send',
+                            });
                     }
                 })
                 .catch((error) => {
@@ -128,13 +141,67 @@ export async function PersonalMessage(req, res, next) {
     }
 }
 
+export async function Messages(req, res, next) {
+    try {
+        const uniqueId = getGuid();
+        const AllUser = await UserDetail.find({FbPageId: req.params.FbPageId});
+        const PageResult = await FbPages.findOne({FbPageId: req.params.FbPageId});
+        AllUser.map(async(singleUser) => {
+            const result = await Order.findOne({FbSPID: singleUser.FbSPID});
+            const FbPageId = PageResult.FbPageId;
+            const FBSPID = singleUser.FbSPID;
+            let messageDetail = PageResult.MassMessage;
+            let orderDetail = '';
+            if(result) {
+                result.Items.map((singleItem) => {
+                    orderDetail += `- ${singleItem.itemName} : x ${singleItem.qty} : ${singleItem.total} \n    `;
+                });
+                messageDetail = messageDetail.replace('{order detail}', orderDetail);
+                messageDetail = messageDetail.replace('{shoppingcartlink}', config.FbAPP.ShoppingLink);
+                const api = {
+                    method: 'POST',
+                    url: `${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`,
+                    data: {
+                        'messaging_type': 'MESSAGE_TAG',
+                        'tag': 'CONFIRMED_EVENT_UPDATE',
+                        'recipient': {
+                            'id': FBSPID
+                        },
+                        'message': {
+                            'text': messageDetail
+                        }
+                    }
+                };
+                try {
+                    const result = axios(api);
+                    Log.writeLog(Log.eLogLevel.info, `[Messages] Request URL - ${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`, uniqueId);
+                } catch(error) {
+                    Log.writeLog(Log.eLogLevel.error, `[Messages] Request URL - ${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`, uniqueId);
+                }
+            }
+            Log.writeLog(Log.eLogLevel.debug, `[Messages] Request URL - ${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`, uniqueId);
+        });
+        res.status(200)
+            .json({
+                result: 'successfully send'
+            });
+    } catch(error) {
+        console.log(error);
+        res.status(500)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+}
+
+
 export async function GetallFbPages() {
     try {
         const allPages = await FbPages.find({}, {
             FbPageId: 1, Is_Live: 1,
             ReplyMessage: 1,
             OutOfStockMessage: 1,
-            StatusActiveTime: 1
+            StatusActiveTime: 1,
+            PersonalMessage: 1,
+            MassMessage: 1,
         })
             .exec();
         setCache(FB_PAGES, allPages);

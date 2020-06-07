@@ -14,6 +14,7 @@ module.exports = {
         successURL: 'https://liveorder.thevelocitee.com/connect/facebook',
         failURL: 'https://liveorder.thevelocitee.com/login',
         Base_API_URL: 'https://graph.facebook.com',
+        ShoppingLink: 'https://liveorder.thevelocitee.com/login',
         scope: ['pages_show_list'
             , 'pages_manage_metadata'
             , 'pages_manage_posts'

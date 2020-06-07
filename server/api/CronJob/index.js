@@ -45,7 +45,7 @@ setInterval(async() => {
                     if(AllPosts !== null && AllPosts.length !== NewPage.AllPosts.length) {
                         AllPosts.map((singlePost) => {
                             const postId = singlePost.id;
-                            const findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId) : false;
+                            let findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId) : false;
                             if(!findOldPost) {
                                 Log.writeLog(Log.eLogLevel.info, `[New Post] : ${JSON.stringify(singlePost)}`, uniqueId);
                                 let NewPost = {
@@ -63,9 +63,10 @@ setInterval(async() => {
                                     const AllComments = await getAllComments(NewPost.FbPageId, NewPost.FbPostId, NewPost.FbAccessToken, NewPost.AllComments, NewPost.nextToken);
                                     if(AllComments !== null && AllComments.data.length > 0) {
 
+                                        //Fetch Last new Comments from the post.
                                         const AllCommentsFilter = AllComments.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
                                             .format() >= moment()
-                                            .subtract((15 * 60), 'seconds')
+                                            .subtract((5 * 60), 'seconds')
                                             .tz('Asia/Singapore')
                                             .format());
 
@@ -102,13 +103,22 @@ setInterval(async() => {
                                 }, 10 * 1000);
                             }
                         });
+                    } else {
+                        if(AllPosts !== null) {
+                            AllPosts.map((singlePost) => {
+                                const postId = singlePost.id;
+                                let findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId) : false;
+                                if(findOldPost) {
+                                    findOldPost.Is_Online = true;
+                                }
+                            });
+                        }
                     }
                 }, 10 * 1000);
             }
         });
     }
 }, 10 * 1000);
-
 
 async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
     try {
@@ -118,11 +128,13 @@ async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
             if(!Is_deleted) {
                 const api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPageId}?fields=posts{message,id,created_time}&access_token=${FbPageAccessToken}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPageId}/posts?access_token=${FbPageAccessToken}&limit=100`
                 };
                 const posts = await axios(api);
-                const findNewPosts = posts.data.posts.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
-                    .format() >= moment.tz(SinglePage.StatusActiveTime, 'Asia/Singapore')
+                const findNewPosts = posts.data.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
+                    .format() >= moment()
+                    .subtract(7, 'days')
+                    .tz('Asia/Singapore')
                     .format());
                 return findNewPosts;
             } else {
@@ -167,10 +179,6 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
             return posts.data;
         } else {
             console.log(`getAllComments - FbPostId is offline ${FbPostId}`);
-            let FindPage = GetAllPages.AllPages.find((singlePage) => singlePage.FbPageId === FbPageId);
-            FindPage.AllPosts.map((singlePost) => {
-                singlePost.Is_Online = false;
-            });
             return null;
         }
     } catch(error) {
@@ -183,7 +191,10 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
 async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outofstock = false) {
     try {
         if(from !== null && from !== undefined) {
-            const messageDetail = reply_message;
+            let messageDetail = reply_message;
+            let orderDetail = `- ${Description} : x ${Qty} : ${Price * Qty} \n    `;
+            messageDetail = messageDetail.replace('{order detail}', orderDetail);
+            messageDetail = messageDetail.replace('{shoppingcartlink}', config.FbAPP.ShoppingLink);
             const api = {
                 method: 'POST',
                 url: `${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`,
@@ -232,10 +243,18 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                     const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === FbPageId && data.keyword.trim()
                         .toLowerCase() === splitKeyword[0].trim()
                         .toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
-                    if(matchKeyWord && matchKeyWord.stock > 0) {
+
+                    const qty = Number(splitKeyword[1].trim());
+                    let updateQty = await Keyword.findOneAndUpdate(
+                        {
+                            _id: matchKeyWord._id,
+                            stock: {$gte: qty}
+                        }, {
+                            $inc: {stock: -qty}
+                        }, {new: true});
+                    if(matchKeyWord && updateQty) {
                         //Todo save order.
                         if(singleComment.from !== null && singleComment.from !== undefined) {
-                            const qty = Number(splitKeyword[1].trim());
                             //Todo find User and create one
                             await UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
                                 FbPageId: FbPageId,
@@ -260,9 +279,6 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                 $inc: {Total: (matchKeyWord.price * qty)},
                                 Date: currentDate.toUTCString()
                             }, {upsert: true, new: true});
-                            let updateQty = await Keyword.findOneAndUpdate({_id: matchKeyWord._id}, {
-                                $inc: {stock: -qty}
-                            }, {new: true});
                             if(InsertBookingItems) {
                                 let result = socketPublishMessage(FbPageId, InsertBookingItems);
                                 result = socketPublishMessage(FbPageId, {
@@ -283,7 +299,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                             }
                         }
                     }
-                    else if(matchKeyWord && matchKeyWord.stock <= 0) {
+                    else if(matchKeyWord) {
                         const result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true);
                     }
                 } catch(error) {
