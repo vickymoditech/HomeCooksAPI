@@ -260,7 +260,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                 $inc: {Total: (matchKeyWord.price * qty)},
                                 Date: currentDate.toUTCString()
                             }, {upsert: true, new: true});
-                            let updateQty = await Keyword.findOneAndUpdate({}, {
+                            let updateQty = await Keyword.findOneAndUpdate({_id: matchKeyWord._id}, {
                                 $inc: {stock: -qty}
                             }, {new: true});
                             if(InsertBookingItems) {
