@@ -32,8 +32,8 @@ mongoose.connection.on('error', function(err) {
 var app = express();
 app.use(cors());
 
-let privateKey = fs.readFileSync('/etc/letsencrypt/live/fblive.thevelocitee.com/privkey.pem').toString();
-let certificate = fs.readFileSync('/etc/letsencrypt/live/fblive.thevelocitee.com/fullchain.pem').toString();
+let privateKey = fs.readFileSync('/etc/letsencrypt/live/live.thevelocitee.com/privkey.pem').toString();
+let certificate = fs.readFileSync('/etc/letsencrypt/live/live.thevelocitee.com/fullchain.pem').toString();
 let credentials = {
     key: privateKey, cert: certificate,
     requestCert: false,

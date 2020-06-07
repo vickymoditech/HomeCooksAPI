@@ -10,9 +10,9 @@ module.exports = {
     FbAPP: {
         AppId: '566200570964800',
         AppSecret: '8d50d318ccbbcac250b0aba336653326',
-        callbackURL: 'https://fblive.thevelocitee.com:9000/api/Oauths/facebook/callback',
-        successURL: 'https://fblive.thevelocitee.com/connect/facebook',
-        failURL: 'https://fblive.thevelocitee.com/login',
+        callbackURL: 'https://liveorder.thevelocitee.com:9000/api/Oauths/facebook/callback',
+        successURL: 'https://liveorder.thevelocitee.com/connect/facebook',
+        failURL: 'https://liveorder.thevelocitee.com/login',
         Base_API_URL: 'https://graph.facebook.com',
         scope: ['pages_show_list'
             , 'pages_manage_metadata'
