@@ -154,7 +154,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         if(SinglePage && SinglePageCheck) {
             let api = {
                 method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=100`
+                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=10000`
             };
             if(nextURL) {
                 api = {
@@ -163,7 +163,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
                 };
             }
             const posts = await axios(api);
-            Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPageId}] : ${posts.data.data.length}`, uniqueId);
+            Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPostId}] : ${posts.data.data.length}`, uniqueId);
             return posts.data;
         } else {
             console.log(`getAllComments - FbPostId is offline ${FbPostId}`);
