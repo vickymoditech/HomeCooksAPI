@@ -53,7 +53,7 @@ setInterval(async() => {
                                     FbAccessToken: singlePages.FbAccessToken,
                                     FbPostId: postId,
                                     FbPostName: singlePost.message,
-                                    AllComments: null,
+                                    AllComments: [],
                                     nextToken: null,
                                     Is_Online: true,
                                 };
@@ -66,22 +66,23 @@ setInterval(async() => {
                                         //Fetch Last new Comments from the post.
                                         const AllCommentsFilter = AllComments.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
                                             .format() >= moment()
-                                            .subtract((5 * 60), 'seconds')
+                                            .subtract((7 * 60), 'seconds')
                                             .tz('Asia/Singapore')
                                             .format());
 
-                                        if(NewPost.AllComments !== null) {
+                                        if(NewPost.AllComments !== null && NewPost.AllComments.length > 0) {
                                             //Todo second Time
                                             AllCommentsFilter.map(async(singleComment) => {
                                                 const CheckNewComment = NewPost.AllComments.find((data) => data.id === singleComment.id);
                                                 if(!CheckNewComment) {
                                                     Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                     await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
+                                                    NewPost.AllComments.push(singleComment);
                                                 }
                                             });
 
                                             //Todo save all the comments and Next Link If we have.
-                                            NewPost.AllComments = AllComments.data;
+                                            //NewPost.AllComments = AllComments.data;
                                             if(AllComments.paging && AllComments.paging.next) {
                                                 NewPost.nextToken = AllComments.paging.next;
                                             }
@@ -91,16 +92,17 @@ setInterval(async() => {
                                             AllCommentsFilter.map(async(singleComment) => {
                                                 Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                 await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
+                                                NewPost.AllComments.push(singleComment);
                                             });
 
                                             //Todo save All the Comments and Next Link If we have.
-                                            NewPost.AllComments = AllComments.data;
+                                            //NewPost.AllComments = AllComments.data;
                                             if(AllComments.paging && AllComments.paging.next) {
                                                 NewPost.nextToken = AllComments.paging.next;
                                             }
                                         }
                                     }
-                                }, 10 * 1000);
+                                }, 15 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
@@ -180,7 +182,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
     }
 }
 
-async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outofstock = false) {
+async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, failtosendagain = true) {
     try {
         if(from !== null && from !== undefined) {
             let messageDetail = reply_message;
@@ -201,23 +203,24 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 }
             };
             Log.writeLog(Log.eLogLevel.debug, `[sendMessageToUser] Request URL - ${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`, uniqueId);
-            axios(api)
-                .then((response) => {
-                    if(response.status === 200) {
-                        Log.writeLog(Log.eLogLevel.info, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${'success'}`, uniqueId);
-                    }
-                })
-                .catch((error) => {
-                    Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
+            try {
+                const result = await axios(api);
+                Log.writeLog(Log.eLogLevel.info, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${'success'}`, uniqueId);
+                return true;
+            } catch(error) {
+                if(failtosendagain) {
+                    await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, failtosendagain = false);
+                } else {
+                    Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser][again] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${JSON.stringify(error)}`, uniqueId);
                     return false;
-                });
-            return true;
+                }
+            }
         } else {
             return false;
         }
     } catch(error) {
         console.log(error);
-        Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] postId - [${postId}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] CommentId - [${CommentId}] ${JSON.stringify(error)}`, uniqueId);
         return false;
     }
 }
@@ -285,21 +288,21 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                     Name: singleComment.from.name,
                                     $inc: {Total: (matchKeyWord.price * qty)},
                                     Date: currentDate.toUTCString()
-                                }, {upsert: true, new: true});
+                                }, {upsert: true, new: true, setDefaultsOnInsert: true});
                                 if(InsertBookingItems) {
-                                    let result = socketPublishMessage(FbPageId, InsertBookingItems);
-                                    result = socketPublishMessage(FbPageId, {
+                                    let result = await socketPublishMessage(FbPageId, InsertBookingItems);
+                                    result = await socketPublishMessage(FbPageId, {
                                         type: 'keywordUpdate',
                                         keyword: updateQty
                                     });
-                                    result = socketPublishMessage('AdminUser', InsertBookingItems);
-                                    result = socketPublishMessage('AdminUser', {
+                                    result = await socketPublishMessage('AdminUser', InsertBookingItems);
+                                    result = await socketPublishMessage('AdminUser', {
                                         type: 'keywordUpdate',
                                         keyword: updateQty
                                     });
                                     matchKeyWord.stock -= qty;
                                     setCache(KEY_WORDS, AllKeyWord);
-                                    result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message);
+                                    result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message);
                                     Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                 } else {
                                     Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
@@ -307,7 +310,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                             }
                         }
                         else if(matchKeyWord) {
-                            const result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true);
+                            const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage);
                         }
                     }
                 } catch(error) {
