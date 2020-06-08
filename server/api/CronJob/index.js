@@ -246,7 +246,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                         findItems.map((data) => {
                             totalCount += data.qty;
                         });
-                        if((totalCount + qty) > matchKeyWord.maxQty) {
+                        if(matchKeyWord.maxQty !== 0 && (totalCount + qty) > matchKeyWord.maxQty) {
                             placeOrder = false;
                         }
                     }
