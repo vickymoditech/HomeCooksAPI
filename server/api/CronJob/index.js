@@ -42,7 +42,7 @@ setInterval(async() => {
                 GetAllPages.AllPages.push(NewPage);
                 setInterval(async() => {
                     const AllPosts = await getAllPosts(singlePages.FbPageId, singlePages.FbAccessToken, singlePages.Is_deleted);
-                    if(AllPosts !== null && AllPosts.length !== NewPage.AllPosts.length) {
+                    if(AllPosts !== null) {
                         AllPosts.map((singlePost) => {
                             const postId = singlePost.id;
                             let findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId) : false;
@@ -101,18 +101,10 @@ setInterval(async() => {
                                         }
                                     }
                                 }, 10 * 1000);
+                            } else {
+                                findOldPost.Is_Online = true;
                             }
                         });
-                    } else {
-                        if(AllPosts !== null) {
-                            AllPosts.map((singlePost) => {
-                                const postId = singlePost.id;
-                                let findOldPost = NewPage.AllPosts.length > 0 ? NewPage.AllPosts.find((postData) => postData.FbPostId === postId) : false;
-                                if(findOldPost) {
-                                    findOldPost.Is_Online = true;
-                                }
-                            });
-                        }
                     }
                 }, 10 * 1000);
             }
@@ -183,7 +175,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         }
     } catch(error) {
         console.log(error);
-        Log.writeLog(Log.eLogLevel.error, `[getAllComments][${FbPageId}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.error, `[getAllComments][${FbPageId}] : ${JSON.stringify(error)}`, uniqueId);
         return null;
     }
 }
