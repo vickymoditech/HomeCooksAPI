@@ -237,62 +237,78 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                         .toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
 
                     const qty = Number(splitKeyword[1].trim());
-                    let updateQty = await Keyword.findOneAndUpdate(
-                        {
-                            _id: matchKeyWord._id,
-                            stock: {$gte: qty}
-                        }, {
-                            $inc: {stock: -qty}
-                        }, {new: true});
-                    if(matchKeyWord && updateQty) {
-                        //Todo save order.
-                        if(singleComment.from !== null && singleComment.from !== undefined) {
-                            //Todo find User and create one
-                            await UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
-                                FbPageId: FbPageId,
-                                Name: singleComment.from.name,
-                            });
-                            //Todo find order and create
-                            let momentDateTime = moment()
-                                .tz('Asia/Singapore')
-                                .format();
-                            let currentDate = new Date(momentDateTime);
-                            let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id}, {
-                                FbPageId: FbPageId,
-                                $push: {
-                                    Items: {
-                                        itemName: matchKeyWord.description,
-                                        qty: qty,
-                                        price: matchKeyWord.price,
-                                        total: (matchKeyWord.price * qty)
-                                    }
-                                },
-                                Name: singleComment.from.name,
-                                $inc: {Total: (matchKeyWord.price * qty)},
-                                Date: currentDate.toUTCString()
-                            }, {upsert: true, new: true});
-                            if(InsertBookingItems) {
-                                let result = socketPublishMessage(FbPageId, InsertBookingItems);
-                                result = socketPublishMessage(FbPageId, {
-                                    type: 'keywordUpdate',
-                                    keyword: updateQty
-                                });
-                                result = socketPublishMessage('AdminUser', InsertBookingItems);
-                                result = socketPublishMessage('AdminUser', {
-                                    type: 'keywordUpdate',
-                                    keyword: updateQty
-                                });
-                                matchKeyWord.stock -= qty;
-                                setCache(KEY_WORDS, AllKeyWord);
-                                result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message);
-                                Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
-                            } else {
-                                Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
-                            }
+                    //Todo check order.
+                    const checkOrder = await Order.findOne({FbSPID: singleComment.from.id});
+                    let placeOrder = true;
+                    if(checkOrder) {
+                        const findItems = checkOrder.Items.filter((data) => data.id === matchKeyWord._id.toString());
+                        let totalCount = 0;
+                        findItems.map((data) => {
+                            totalCount += data.qty;
+                        });
+                        if((totalCount + qty) > matchKeyWord.maxQty) {
+                            placeOrder = false;
                         }
                     }
-                    else if(matchKeyWord) {
-                        const result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true);
+                    if(placeOrder) {
+                        let updateQty = await Keyword.findOneAndUpdate(
+                            {
+                                _id: matchKeyWord._id,
+                                stock: {$gte: qty}
+                            }, {
+                                $inc: {stock: -qty}
+                            }, {new: true});
+                        if(matchKeyWord && updateQty) {
+                            //Todo save order.
+                            if(singleComment.from !== null && singleComment.from !== undefined) {
+                                //Todo find User and create one
+                                await UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
+                                    FbPageId: FbPageId,
+                                    Name: singleComment.from.name,
+                                });
+                                //Todo find order and create
+                                let momentDateTime = moment()
+                                    .tz('Asia/Singapore')
+                                    .format();
+                                let currentDate = new Date(momentDateTime);
+                                let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id}, {
+                                    FbPageId: FbPageId,
+                                    $push: {
+                                        Items: {
+                                            id: matchKeyWord._id.toString(),
+                                            itemName: matchKeyWord.description,
+                                            qty: qty,
+                                            price: matchKeyWord.price,
+                                            total: (matchKeyWord.price * qty)
+                                        }
+                                    },
+                                    Name: singleComment.from.name,
+                                    $inc: {Total: (matchKeyWord.price * qty)},
+                                    Date: currentDate.toUTCString()
+                                }, {upsert: true, new: true});
+                                if(InsertBookingItems) {
+                                    let result = socketPublishMessage(FbPageId, InsertBookingItems);
+                                    result = socketPublishMessage(FbPageId, {
+                                        type: 'keywordUpdate',
+                                        keyword: updateQty
+                                    });
+                                    result = socketPublishMessage('AdminUser', InsertBookingItems);
+                                    result = socketPublishMessage('AdminUser', {
+                                        type: 'keywordUpdate',
+                                        keyword: updateQty
+                                    });
+                                    matchKeyWord.stock -= qty;
+                                    setCache(KEY_WORDS, AllKeyWord);
+                                    result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message);
+                                    Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
+                                } else {
+                                    Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
+                                }
+                            }
+                        }
+                        else if(matchKeyWord) {
+                            const result = sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true);
+                        }
                     }
                 } catch(error) {
                     console.log(error);
