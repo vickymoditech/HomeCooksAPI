@@ -48,22 +48,28 @@ export async function GetallKeywords() {
 // Creates a new Keyword in the DB
 export async function create(req, res) {
     try {
-        Keyword.create(req.body)
-            .then(async(InsertKeywords, err) => {
-                if(!err) {
-                    await GetallKeywords();
-                    res.status(200)
-                        .json({data: InsertKeywords, result: 'Save Successfully'});
-                } else {
-                    res.status(400)
-                        .json(errorJsonResponse(err.toString(), err.toString()));
-                }
-            });
+        const findKeyword = await Keyword.findOne({keyword: req.body.keyword});
+        if(findKeyword) {
+            res.status(400)
+                .json(errorJsonResponse('This Keyword already has been registered', 'This Keyword already has been registered'));
+        } else {
+            req.body.defaultMaxQty = req.body.maxQty;
+            Keyword.create(req.body)
+                .then(async(InsertKeywords, err) => {
+                    if(!err) {
+                        await GetallKeywords();
+                        res.status(200)
+                            .json({data: InsertKeywords, result: 'Save Successfully'});
+                    } else {
+                        res.status(400)
+                            .json(errorJsonResponse(err.toString(), err.toString()));
+                    }
+                });
+        }
     } catch(error) {
         res.status(500)
             .json(errorJsonResponse(error.toString(), error.toString()));
     }
-
 }
 
 // Update Keyword in the DB

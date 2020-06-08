@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import {registerEvents} from './keyword.events';
+
 let findOrCreate = require('mongoose-findorcreate');
 
 let KeywordSchema = new mongoose.Schema({
@@ -9,7 +10,8 @@ let KeywordSchema = new mongoose.Schema({
     stock: Number,
     reply_message: String,
     FbPageId: String,
-    maxQty: {type: Number, default: 0}
+    maxQty: {type: Number, default: 0},
+    defaultMaxQty: {type: Number, default: 0}
 });
 
 KeywordSchema.plugin(findOrCreate);

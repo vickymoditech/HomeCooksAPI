@@ -5,6 +5,8 @@ import config from '../../config/environment';
 import Log from '../../config/Log';
 import axios from 'axios';
 import UserDetail from '../UserDetail/UserDetail.model';
+import Keyword from '../keyword/keyword.model';
+import {GetallKeywords} from '../keyword/keyword.controller';
 
 let moment = require('moment-timezone');
 
@@ -39,12 +41,21 @@ export async function status(req, res, next) {
             .format();
         let currentDate = new Date(momentDateTime);
         const result = await FbPages.updateOne({FbPageId: req.params.FbPageId}, {
-                $set: {
-                    Is_Live: req.body.status,
-                    StatusActiveTime: currentDate.toUTCString()
-                }
-            })
-        ;
+            $set: {
+                Is_Live: req.body.status,
+                StatusActiveTime: currentDate.toUTCString()
+            }
+        });
+        if(req.body.status === false) {
+            const findKeyword = await Keyword.find({FbPageId: req.params.FbPageId});
+            findKeyword.map(async(data) => {
+                await  Keyword.updateOne({_id: data._id}, {
+                    maxQty: data.defaultMaxQty
+                });
+            });
+        } else {
+            await GetallKeywords();
+        }
         await GetallFbPages();
         if(result.ok === 1) {
             res.status(200)
