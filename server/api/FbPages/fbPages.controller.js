@@ -100,8 +100,8 @@ export async function MessageFormat(req, res, next) {
 }
 
 export async function PersonalMessage(req, res, next) {
+    const uniqueId = getGuid();
     try {
-        const uniqueId = getGuid();
         const result = await Order.findOne({FbSPID: req.params.FbSPID});
         if(result) {
             const PageResult = await FbPages.findOne({FbPageId: result.FbPageId});
@@ -141,7 +141,7 @@ export async function PersonalMessage(req, res, next) {
                 .catch((error) => {
                     res.status(401)
                         .json(errorJsonResponse(error.toString(), error.toString()));
-                    Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] FBSPID - [${FBSPID}] message - [${messageDetail}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
+                    Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] PageId - [${FbPageId}] FBSPID - [${FBSPID}] message - [${messageDetail}] : ${JSON.stringify(error)}`, uniqueId);
                 });
 
             Log.writeLog(Log.eLogLevel.debug, `[sendMessageToUser] Request URL - ${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`, uniqueId);
@@ -149,6 +149,7 @@ export async function PersonalMessage(req, res, next) {
     } catch(error) {
         res.status(500)
             .json(errorJsonResponse(error.toString(), error.toString()));
+        Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser] : ${JSON.stringify(error)}`, uniqueId);
     }
 }
 
@@ -187,6 +188,7 @@ export async function Messages(req, res, next) {
                     const result = axios(api);
                     Log.writeLog(Log.eLogLevel.info, `[Messages] Request URL - ${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`, uniqueId);
                 } catch(error) {
+                    Log.writeLog(Log.eLogLevel.error, `[Messages] ${JSON.stringify(error)}`, uniqueId);
                     Log.writeLog(Log.eLogLevel.error, `[Messages] Request URL - ${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`, uniqueId);
                 }
             }

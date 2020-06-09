@@ -146,7 +146,7 @@ async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
         console.log(`getAllPosts - ${FbPageId}`, JSON.stringify(error));
         let FindPage = GetAllPages.AllPages.find((singlePage) => singlePage.FbPageId === FbPageId);
         FindPage.Is_deleted = true;
-        Log.writeLog(Log.eLogLevel.error, `[getAllPosts][${FbPageId}] : ${errorJsonResponse(error.message.toString(), error.message.toString())}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.error, `[getAllPosts][${FbPageId}] : ${JSON.stringify(error)}`, uniqueId);
         return null;
     }
 }
@@ -182,13 +182,33 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
     }
 }
 
-async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, failtosendagain = true) {
+async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, failtosendagain = true) {
     try {
         if(from !== null && from !== undefined) {
             let messageDetail = reply_message;
-            let orderDetail = `- ${Description} : x ${Qty} : ${Price * Qty} \n    `;
-            messageDetail = messageDetail.replace('{order detail}', orderDetail);
-            messageDetail = messageDetail.replace('{shoppingcartlink}', config.FbAPP.ShoppingLink);
+            let message = {
+                'text': messageDetail
+            };
+            if(!outOfStock) {
+                let orderDetail = `- ${Description} : x ${Qty} : ${Price * Qty} \n    `;
+                messageDetail = messageDetail.replace('{order detail}', orderDetail);
+                message = {
+                    'attachment': {
+                        'type': 'template',
+                        'payload': {
+                            'template_type': 'button',
+                            'text': messageDetail,
+                            'buttons': [
+                                {
+                                    'type': 'web_url',
+                                    'url': config.FbAPP.ShoppingLink,
+                                    'title': 'your order at'
+                                }
+                            ]
+                        }
+                    }
+                };
+            }
             const api = {
                 method: 'POST',
                 url: `${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`,
@@ -197,9 +217,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                     'recipient': {
                         'comment_id': CommentId
                     },
-                    'message': {
-                        'text': messageDetail
-                    }
+                    'message': message
                 }
             };
             Log.writeLog(Log.eLogLevel.debug, `[sendMessageToUser] Request URL - ${config.FbAPP.Base_API_URL}/${FbPageId}/messages?&access_token=${FbPageAccessToken}`, uniqueId);
@@ -209,7 +227,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 return true;
             } catch(error) {
                 if(failtosendagain) {
-                    await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, failtosendagain = false);
+                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, failtosendagain = false);
                 } else {
                     Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser][again] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${JSON.stringify(error)}`, uniqueId);
                     return false;
@@ -227,43 +245,43 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
 
 async function order(singleComment, FbPageId, FbAccessToken) {
     try {
-        const AllPagesCache = getCache(FB_PAGES);
-        const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
-        if(SinglePage) {
-            const AllKeyWord = getCache(KEY_WORDS);
-            const splitKeyword = singleComment.message.toString()
-                .split('+');
-            if(splitKeyword.length === 2) {
-                try {
-                    const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === FbPageId && data.keyword.trim()
-                        .toLowerCase() === splitKeyword[0].trim()
-                        .toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
+        if(singleComment.from !== null && singleComment.from !== undefined) {
+            const AllPagesCache = getCache(FB_PAGES);
+            const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
+            if(SinglePage) {
+                const AllKeyWord = getCache(KEY_WORDS);
+                const splitKeyword = singleComment.message.toString()
+                    .split('+');
+                if(splitKeyword.length === 2) {
+                    try {
+                        const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === FbPageId && data.keyword.trim()
+                            .toLowerCase() === splitKeyword[0].trim()
+                            .toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
 
-                    const qty = Number(splitKeyword[1].trim());
-                    //Todo check order.
-                    const checkOrder = await Order.findOne({FbSPID: singleComment.from.id});
-                    let placeOrder = true;
-                    if(checkOrder) {
-                        const findItems = checkOrder.Items.filter((data) => data.id === matchKeyWord._id.toString());
-                        let totalCount = 0;
-                        findItems.map((data) => {
-                            totalCount += data.qty;
-                        });
-                        if(matchKeyWord.maxQty !== 0 && (totalCount + qty) > matchKeyWord.maxQty) {
-                            placeOrder = false;
+                        const qty = Number(splitKeyword[1].trim());
+                        //Todo check order.
+                        const checkOrder = await Order.findOne({FbSPID: singleComment.from.id});
+                        let placeOrder = true;
+                        if(checkOrder) {
+                            const findItems = checkOrder.Items.filter((data) => data.id === matchKeyWord._id.toString());
+                            let totalCount = 0;
+                            findItems.map((data) => {
+                                totalCount += data.qty;
+                            });
+                            if(matchKeyWord.maxQty !== 0 && (totalCount + qty) > matchKeyWord.maxQty) {
+                                placeOrder = false;
+                            }
                         }
-                    }
-                    if(placeOrder) {
-                        let updateQty = await Keyword.findOneAndUpdate(
-                            {
-                                _id: matchKeyWord._id,
-                                stock: {$gte: qty}
-                            }, {
-                                $inc: {stock: -qty}
-                            }, {new: true});
-                        if(matchKeyWord && updateQty) {
-                            //Todo save order.
-                            if(singleComment.from !== null && singleComment.from !== undefined) {
+                        if(placeOrder) {
+                            let updateQty = await Keyword.findOneAndUpdate(
+                                {
+                                    _id: matchKeyWord._id,
+                                    stock: {$gte: qty}
+                                }, {
+                                    $inc: {stock: -qty}
+                                }, {new: true});
+                            if(matchKeyWord && updateQty) {
+                                //Todo save order.
                                 //Todo find User and create one
                                 await UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
                                     FbPageId: FbPageId,
@@ -302,26 +320,27 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                     });
                                     matchKeyWord.stock -= qty;
                                     setCache(KEY_WORDS, AllKeyWord);
-                                    result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message);
+                                    result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false);
                                     Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                 } else {
                                     Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                 }
                             }
+                            else if(matchKeyWord) {
+                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true);
+                            }
                         }
-                        else if(matchKeyWord) {
-                            const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage);
-                        }
+                    } catch(error) {
+                        Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(error)}]`, uniqueId);
                     }
-                } catch(error) {
-                    console.log(error);
                 }
+            } else {
+                Log.writeLog(Log.eLogLevel.debug, `[saveOrder] Page is offline ${FbPageId}`, uniqueId);
             }
-        } else {
-            console.log(`Page is offline ${FbPageId}`);
+            return true;
         }
-        return true;
     } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[saveOrder] ${JSON.stringify(error)}`, uniqueId);
         return false;
     }
 }
