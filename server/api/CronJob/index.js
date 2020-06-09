@@ -83,8 +83,8 @@ setInterval(async() => {
 
                                             //Todo save all the comments and Next Link If we have.
                                             //NewPost.AllComments = AllComments.data;
-                                            if(AllComments.paging && AllComments.paging.next) {
-                                                NewPost.nextToken = AllComments.paging.next;
+                                            if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
+                                                NewPost.nextToken = AllComments.paging.cursors.after;
                                             }
 
                                         } else {
@@ -97,8 +97,8 @@ setInterval(async() => {
 
                                             //Todo save All the Comments and Next Link If we have.
                                             //NewPost.AllComments = AllComments.data;
-                                            if(AllComments.paging && AllComments.paging.next) {
-                                                NewPost.nextToken = AllComments.paging.next;
+                                            if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
+                                                NewPost.nextToken = AllComments.paging.cursors.after;
                                             }
                                         }
                                     }
@@ -165,7 +165,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
             if(nextURL) {
                 api = {
                     method: 'GET',
-                    url: nextURL
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=10000&after${nextURL}`
                 };
             }
             const posts = await axios(api);
