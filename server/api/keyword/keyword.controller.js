@@ -48,7 +48,7 @@ export async function GetallKeywords() {
 // Creates a new Keyword in the DB
 export async function create(req, res) {
     try {
-        const findKeyword = await Keyword.findOne({keyword: req.body.keyword});
+        const findKeyword = await Keyword.findOne({FbPageId: req.body.FbPageId, keyword: req.body.keyword});
         if(findKeyword) {
             res.status(400)
                 .json(errorJsonResponse('This Keyword already has been registered', 'This Keyword already has been registered'));
