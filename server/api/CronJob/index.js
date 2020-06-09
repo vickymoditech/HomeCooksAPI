@@ -66,7 +66,7 @@ setInterval(async() => {
                                         //Fetch Last new Comments from the post.
                                         const AllCommentsFilter = AllComments.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
                                             .format() >= moment()
-                                            .subtract((7 * 60), 'seconds')
+                                            .subtract((10 * 60), 'seconds')
                                             .tz('Asia/Singapore')
                                             .format());
 
@@ -102,7 +102,7 @@ setInterval(async() => {
                                             }
                                         }
                                     }
-                                }, 15 * 1000);
+                                }, 55 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
