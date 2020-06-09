@@ -160,12 +160,12 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         if(SinglePage && SinglePageCheck) {
             let api = {
                 method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000`
+                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=3000`
             };
             if(nextURL) {
                 api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000&after${nextURL}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=3000&after${nextURL}`
                 };
             }
             const posts = await axios(api);
