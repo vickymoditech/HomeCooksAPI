@@ -1,4 +1,6 @@
 import Order from './Order.model';
+import {errorJsonResponse} from '../../config/commonHelper';
+import UserDetail from '../UserDetail/UserDetail.model';
 
 function respondWithResult(res, statusCode) {
     statusCode = statusCode || 200;
@@ -37,4 +39,24 @@ export function show(req, res) {
         .then(handleEntityNotFound(res))
         .then(respondWithResult(res))
         .catch(handleError(res));
+}
+
+export async function order(req, res) {
+    try {
+        let FindOrder = await Order.findOne({_id: req.params.id});
+        if(FindOrder) {
+            let FindCustomer = await UserDetail.findOne({FbSPID: FindOrder.FbSPID});
+            res.status(200)
+                .json({
+                    Order: FindOrder,
+                    Customer: FindCustomer
+                });
+        } else {
+            res.status(400)
+                .json('your order has been removed', 'your order has been removed');
+        }
+    } catch(error) {
+        res.status(501)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
 }

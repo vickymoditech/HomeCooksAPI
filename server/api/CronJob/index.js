@@ -55,12 +55,14 @@ setInterval(async() => {
                                     FbPostName: singlePost.message,
                                     AllComments: [],
                                     nextToken: null,
+                                    beforeToken: null,
                                     Is_Online: true,
+                                    Is_next: null,
                                 };
                                 NewPage.AllPosts.push(NewPost);
                                 //Todo work here get all new comments
                                 setInterval(async() => {
-                                    const AllComments = await getAllComments(NewPost.FbPageId, NewPost.FbPostId, NewPost.FbAccessToken, NewPost.AllComments, NewPost.nextToken);
+                                    const AllComments = await getAllComments(NewPost.FbPageId, NewPost.FbPostId, NewPost.FbAccessToken, NewPost.AllComments, NewPost.nextToken, NewPost.beforeToken, NewPost.Is_next);
                                     if(AllComments !== null && AllComments.data.length > 0) {
 
                                         //Fetch Last new Comments from the post.
@@ -85,6 +87,8 @@ setInterval(async() => {
                                             //NewPost.AllComments = AllComments.data;
                                             if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
                                                 NewPost.nextToken = AllComments.paging.cursors.after;
+                                                NewPost.beforeToken = AllComments.paging.cursors.before;
+                                                NewPost.Is_next = true;
                                             }
 
                                         } else {
@@ -99,7 +103,13 @@ setInterval(async() => {
                                             //NewPost.AllComments = AllComments.data;
                                             if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
                                                 NewPost.nextToken = AllComments.paging.cursors.after;
+                                                NewPost.beforeToken = AllComments.paging.cursors.before;
+                                                NewPost.Is_next = true;
                                             }
+                                        }
+                                    } else {
+                                        if(AllComments !== null && AllComments.data.length === 0) {
+                                            NewPost.Is_next = false;
                                         }
                                     }
                                 }, 10 * 1000);
@@ -151,7 +161,7 @@ async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
     }
 }
 
-async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments, nextURL) {
+async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments, nextURL, backURL, Is_next) {
     try {
         const AllPagesCache = getCache(FB_PAGES);
         const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
@@ -160,15 +170,22 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         if(SinglePage && SinglePageCheck) {
             let api = {
                 method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=3000`
+                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000`
             };
-            if(nextURL) {
+            if(nextURL !== null && Is_next === true) {
                 api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=3000&after=${nextURL}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000&after=${nextURL}`
+                };
+            }
+            if(backURL !== null && Is_next === false) {
+                api = {
+                    method: 'GET',
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000&before=${backURL}`
                 };
             }
             const posts = await axios(api);
+            Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPostId}] : ${JSON.stringify(api)}`, uniqueId);
             Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPostId}] : ${posts.data.data.length}`, uniqueId);
             return posts.data;
         } else {
@@ -182,7 +199,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
     }
 }
 
-async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, failtosendagain = true) {
+async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, orderId, failtosendagain = true) {
     try {
         if(from !== null && from !== undefined) {
             let messageDetail = reply_message;
@@ -201,7 +218,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                             'buttons': [
                                 {
                                     'type': 'web_url',
-                                    'url': config.FbAPP.ShoppingLink,
+                                    'url': config.FbAPP.ShoppingLink + orderId,
                                     'title': 'your order at'
                                 }
                             ]
@@ -227,7 +244,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 return true;
             } catch(error) {
                 if(failtosendagain) {
-                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, failtosendagain = false);
+                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, orderId, false);
                 } else {
                     Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser][again] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${JSON.stringify(error)}`, uniqueId);
                     return false;
@@ -320,14 +337,14 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                     });
                                     matchKeyWord.stock -= qty;
                                     setCache(KEY_WORDS, AllKeyWord);
-                                    result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false);
+                                    result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false, InsertBookingItems._id);
                                     Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                 } else {
                                     Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                 }
                             }
                             else if(matchKeyWord) {
-                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true);
+                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true, null);
                             }
                         }
                     } catch(error) {
