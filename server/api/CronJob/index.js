@@ -300,48 +300,56 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                             if(matchKeyWord && updateQty) {
                                 //Todo save order.
                                 //Todo find User and create one
-                                await UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
+                                UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
                                     FbPageId: FbPageId,
                                     Name: singleComment.from.name,
-                                });
-                                //Todo find order and create
-                                let momentDateTime = moment()
-                                    .tz('Asia/Singapore')
-                                    .format();
-                                let currentDate = new Date(momentDateTime);
-                                let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id}, {
-                                    FbPageId: FbPageId,
-                                    $push: {
-                                        Items: {
-                                            id: matchKeyWord._id.toString(),
-                                            itemName: matchKeyWord.description,
-                                            qty: qty,
-                                            price: matchKeyWord.price,
-                                            total: (matchKeyWord.price * qty)
+                                })
+                                    .then(async(result) => {
+                                        //Todo find order and create
+                                        let momentDateTime = moment()
+                                            .tz('Asia/Singapore')
+                                            .format();
+                                        let currentDate = new Date(momentDateTime);
+                                        let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id}, {
+                                            FbPageId: FbPageId,
+                                            $push: {
+                                                Items: {
+                                                    id: matchKeyWord._id.toString(),
+                                                    itemName: matchKeyWord.description,
+                                                    qty: qty,
+                                                    price: matchKeyWord.price,
+                                                    total: (matchKeyWord.price * qty)
+                                                }
+                                            },
+                                            Name: singleComment.from.name,
+                                            $inc: {Total: (matchKeyWord.price * qty)},
+                                            Date: currentDate.toUTCString(),
+                                            ShippingName: singleComment.from.name,
+                                            ShippingMobile: result.doc.ShippingMobile,
+                                            ShippingAddress1: result.doc.ShippingAddress1,
+                                            ShippingAddress2: result.doc.ShippingAddress2,
+                                            ShippingAddress3: result.doc.ShippingAddress3,
+                                            ShippingPostalCode: result.doc.ShippingPostalCode,
+                                        }, {upsert: true, new: true, setDefaultsOnInsert: true});
+                                        if(InsertBookingItems) {
+                                            let result = await socketPublishMessage(FbPageId, InsertBookingItems);
+                                            result = await socketPublishMessage(FbPageId, {
+                                                type: 'keywordUpdate',
+                                                keyword: updateQty
+                                            });
+                                            result = await socketPublishMessage('AdminUser', InsertBookingItems);
+                                            result = await socketPublishMessage('AdminUser', {
+                                                type: 'keywordUpdate',
+                                                keyword: updateQty
+                                            });
+                                            matchKeyWord.stock -= qty;
+                                            setCache(KEY_WORDS, AllKeyWord);
+                                            result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false, InsertBookingItems._id);
+                                            Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
+                                        } else {
+                                            Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                         }
-                                    },
-                                    Name: singleComment.from.name,
-                                    $inc: {Total: (matchKeyWord.price * qty)},
-                                    Date: currentDate.toUTCString()
-                                }, {upsert: true, new: true, setDefaultsOnInsert: true});
-                                if(InsertBookingItems) {
-                                    let result = await socketPublishMessage(FbPageId, InsertBookingItems);
-                                    result = await socketPublishMessage(FbPageId, {
-                                        type: 'keywordUpdate',
-                                        keyword: updateQty
                                     });
-                                    result = await socketPublishMessage('AdminUser', InsertBookingItems);
-                                    result = await socketPublishMessage('AdminUser', {
-                                        type: 'keywordUpdate',
-                                        keyword: updateQty
-                                    });
-                                    matchKeyWord.stock -= qty;
-                                    setCache(KEY_WORDS, AllKeyWord);
-                                    result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false, InsertBookingItems._id);
-                                    Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
-                                } else {
-                                    Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
-                                }
                             }
                             else if(matchKeyWord) {
                                 const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true, null);

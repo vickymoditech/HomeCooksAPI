@@ -15,7 +15,13 @@ let OrderSchema = new mongoose.Schema({
     ShippingOption: String,
     PaymentStatus: {type: String, default: 'unpaid'},
     Confirmed: Boolean,
-    Date: Date
+    Date: Date,
+    ShippingName: String,
+    ShippingMobile: String,
+    ShippingAddress1: String,
+    ShippingAddress2: String,
+    ShippingAddress3: String,
+    ShippingPostalCode: String,
 }, {collection: 'fbliveorder'});
 
 OrderSchema.plugin(findOrCreate);
