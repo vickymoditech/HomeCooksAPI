@@ -14,4 +14,6 @@ router.get('/Message/:FbSPID', validation.validateAuthorization, controller.Pers
 
 router.get('/All/Message/:FbPageId', validation.validateAuthorization, controller.Messages);
 
+router.put('/:FbPageId', validation.validateAuthorization, controller.UpdateDeliveryDate);
+
 module.exports = router;

@@ -205,6 +205,30 @@ export async function Messages(req, res, next) {
     }
 }
 
+export async function UpdateDeliveryDate(req, res, next) {
+    try {
+        const result = await FbPages.updateOne({FbPageId: req.params.FbPageId}, {
+            $set: {
+                DeliveryDate: req.body.DeliveryDate,
+            }
+        });
+        await GetallFbPages();
+        if(result.ok === 1) {
+            res.status(200)
+                .json({
+                    result: 'Successfully updated',
+                    data: {
+                        FbPageId: req.params.FbPageId,
+                        DeliveryDate: req.body.DeliveryDate
+                    }
+                });
+        }
+    } catch(error) {
+        console.log(error);
+        res.status(500)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+}
 
 export async function GetallFbPages() {
     try {

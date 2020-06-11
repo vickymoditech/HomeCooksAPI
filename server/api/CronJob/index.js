@@ -109,10 +109,10 @@ setInterval(async() => {
                                         }
                                     } else {
                                         if(AllComments !== null && AllComments.data.length === 0) {
-                                            NewPost.Is_next = false;
+                                            NewPost.Is_next = !NewPost.Is_next;
                                         }
                                     }
-                                }, 10 * 1000);
+                                }, 30 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
