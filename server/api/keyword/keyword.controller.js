@@ -82,6 +82,7 @@ export async function update(req, res) {
                 stock: req.body.stock,
                 reply_message: req.body.reply_message,
                 FbPageId: req.body.FbPageId,
+                SKU: req.body.SKU,
                 maxQty: req.body.maxQty
             }, {new: true}
         )
