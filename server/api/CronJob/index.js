@@ -112,7 +112,7 @@ setInterval(async() => {
                                             NewPost.Is_next = !NewPost.Is_next;
                                         }
                                     }
-                                }, 25 * 1000);
+                                }, 20 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
