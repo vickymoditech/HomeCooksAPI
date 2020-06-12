@@ -13,7 +13,7 @@ let FbPagesSchema = new mongoose.Schema({
     PersonalMessage: String,
     MassMessage: String,
     StatusActiveTime: Date,
-    DeliveryDate: Date,
+    DeliveryDate: mongoose.Schema.Types.Mixed,
 });
 
 FbPagesSchema.plugin(findOrCreate);

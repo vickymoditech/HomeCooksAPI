@@ -112,7 +112,7 @@ setInterval(async() => {
                                             NewPost.Is_next = !NewPost.Is_next;
                                         }
                                     }
-                                }, 30 * 1000);
+                                }, 25 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
@@ -271,11 +271,11 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                     .split('+');
                 if(splitKeyword.length === 2) {
                     try {
+                        const qty = Number(splitKeyword[1].trim());
                         const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === FbPageId && data.keyword.trim()
                             .toLowerCase() === splitKeyword[0].trim()
-                            .toLowerCase() && (data.maxQty === 0 || data.maxQty >= Number(splitKeyword[1].trim())));
+                            .toLowerCase() && qty >= 0 && (data.maxQty === 0 || data.maxQty >= qty));
 
-                        const qty = Number(splitKeyword[1].trim());
                         //Todo check order.
                         const checkOrder = await Order.findOne({FbSPID: singleComment.from.id});
                         let placeOrder = true;

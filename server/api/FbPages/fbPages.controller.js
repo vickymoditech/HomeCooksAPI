@@ -24,7 +24,8 @@ export async function index(req, res) {
             ReplyMessage: 1,
             OutOfStockMessage: 1,
             PersonalMessage: 1,
-            MassMessage: 1
+            MassMessage: 1,
+            DeliveryDate: 1
         });
         res.status(200)
             .json(GetallFbPages);
