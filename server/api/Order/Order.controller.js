@@ -67,9 +67,14 @@ export async function order(req, res) {
 export async function updateOrder(req, res, next) {
     try {
         const order = req.body.Order;
+        const orderStatus = req.body.OrderStatus;
         const OrderId = order._id;
+        let result = 'Your order has been updated';
         delete order._id;
-        order.Status = 'Confirmed';
+        if(orderStatus !== '') {
+            order.Status = orderStatus;
+            result = 'Item has been updated';
+        }
         let placeOrder = true;
         let ItemNotFound = [];
         let reduceQty = [];
@@ -80,7 +85,6 @@ export async function updateOrder(req, res, next) {
             const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
             if(originalOrderQty.qty <= singleItem.qty) {
                 if(!(findProduct.stock >= (singleItem.qty - originalOrderQty.qty))) {
-                    console.log('here');
                     placeOrder = false;
                     ItemNotFound.push(findProduct.description);
                 }
@@ -94,6 +98,7 @@ export async function updateOrder(req, res, next) {
         }));
 
         if(placeOrder) {
+            let total = 0;
             await Promise.all(order.Items.map(async(singleItem) => {
                 const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
                 let qty = 0;
@@ -107,6 +112,7 @@ export async function updateOrder(req, res, next) {
                         }, {
                             $inc: {stock: -qty}
                         }, {new: true});
+                    total += (updateQty.price * qty);
                 } else {
                     qty = originalOrderQty.qty - singleItem.qty;
                     updateQty = await Keyword.findOneAndUpdate(
@@ -115,6 +121,7 @@ export async function updateOrder(req, res, next) {
                         }, {
                             $inc: {stock: +qty}
                         }, {new: true});
+                    total += (updateQty.price * -qty);
                 }
 
                 let result = await socketPublishMessage(order.FbPageId, {
@@ -137,8 +144,8 @@ export async function updateOrder(req, res, next) {
                 ShippingAddress1: order.ShippingAddress1,
                 ShippingPostalCode: order.ShippingPostalCode,
                 DeliveryTimeSlot: order.DeliveryTimeSlot,
-                Items: order.Items
             }, {new: true, setDefaultsOnInsert: true});
+            order.Total += total;
             let UpdateOrder = await Order.findOneAndUpdate({_id: OrderId}, order, {new: true, setDefaultsOnInsert: true});
             if(UpdateOrder) {
                 let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
@@ -150,7 +157,7 @@ export async function updateOrder(req, res, next) {
                             Order: UpdateOrder,
                             DeliveryTimeSlot: PageDetail.DeliveryDate
                         },
-                        result: 'Your order successfully placed'
+                        result: result
                     });
             } else {
                 res.status(400)

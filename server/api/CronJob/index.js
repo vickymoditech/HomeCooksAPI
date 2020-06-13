@@ -199,7 +199,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
     }
 }
 
-async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, orderId, failtosendagain = true) {
+async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, keyword, Qty, Price, reply_message, outOfStock, orderId, failtosendagain = true) {
     try {
         if(from !== null && from !== undefined) {
             let messageDetail = reply_message;
@@ -207,7 +207,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 'text': messageDetail
             };
             if(!outOfStock) {
-                let orderDetail = `- ${Description} : x ${Qty} : ${Price * Qty} \n    `;
+                let orderDetail = `- ${Description} : ${keyword} : x ${Qty} : ${Price * Qty} \n    `;
                 messageDetail = messageDetail.replace('{order detail}', orderDetail);
                 message = {
                     'attachment': {
@@ -219,7 +219,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                                 {
                                     'type': 'web_url',
                                     'url': config.FbAPP.ShoppingLink + orderId,
-                                    'title': 'your order at'
+                                    'title': 'View Order'
                                 }
                             ]
                         }
@@ -244,7 +244,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 return true;
             } catch(error) {
                 if(failtosendagain) {
-                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, Qty, Price, reply_message, outOfStock, orderId, false);
+                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, keyword, Qty, Price, reply_message, outOfStock, orderId, false);
                 } else {
                     Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser][again] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${JSON.stringify(error)}`, uniqueId);
                     return false;
@@ -318,6 +318,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                                     itemName: matchKeyWord.description,
                                                     qty: qty,
                                                     price: matchKeyWord.price,
+                                                    keyword: matchKeyWord.keyword,
                                                     total: (matchKeyWord.price * qty)
                                                 }
                                             },
@@ -344,7 +345,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                             });
                                             matchKeyWord.stock -= qty;
                                             setCache(KEY_WORDS, AllKeyWord);
-                                            result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false, InsertBookingItems._id);
+                                            result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, matchKeyWord.keyword, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false, InsertBookingItems._id);
                                             Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                         } else {
                                             Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
@@ -352,7 +353,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                     });
                             }
                             else if(matchKeyWord) {
-                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, 0, 0, SinglePage.OutOfStockMessage, true, null);
+                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, matchKeyWord.keyword, 0, 0, SinglePage.OutOfStockMessage, true, null);
                             }
                         }
                     } catch(error) {
