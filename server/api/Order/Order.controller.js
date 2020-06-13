@@ -69,11 +69,11 @@ export async function updateOrder(req, res, next) {
         const order = req.body.Order;
         const orderStatus = req.body.OrderStatus;
         const OrderId = order._id;
-        let result = 'Your order has been updated';
+        let MessageResult = 'Your order has been updated';
         delete order._id;
         if(orderStatus !== '') {
             order.Status = orderStatus;
-            result = 'Item has been updated';
+            MessageResult = 'Item has been updated';
         }
         let placeOrder = true;
         let ItemNotFound = [];
@@ -157,7 +157,7 @@ export async function updateOrder(req, res, next) {
                             Order: UpdateOrder,
                             DeliveryTimeSlot: PageDetail.DeliveryDate
                         },
-                        result: result
+                        result: MessageResult
                     });
             } else {
                 res.status(400)
