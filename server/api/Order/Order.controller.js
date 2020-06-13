@@ -80,6 +80,7 @@ export async function updateOrder(req, res, next) {
         let reduceQty = [];
 
         const findOrder = await Order.findOne({_id: OrderId});
+        order.Total = findOrder.Total;
         await Promise.all(order.Items.map(async(singleItem) => {
             const findProduct = await Keyword.findOne({_id: singleItem.id});
             const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
