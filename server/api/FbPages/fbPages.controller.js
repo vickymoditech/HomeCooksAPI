@@ -25,7 +25,9 @@ export async function index(req, res) {
             OutOfStockMessage: 1,
             PersonalMessage: 1,
             MassMessage: 1,
-            DeliveryDate: 1
+            DeliveryDate: 1,
+            Minimum: 1,
+            ShippingMinimum: 1
         });
         res.status(200)
             .json(GetallFbPages);
@@ -71,35 +73,6 @@ export async function status(req, res, next) {
     }
 }
 
-export async function MessageFormat(req, res, next) {
-    try {
-        const result = await FbPages.updateOne({FbPageId: req.params.FbPageId}, {
-            $set: {
-                ReplyMessage: req.body.ReplyMessage,
-                OutOfStockMessage: req.body.OutOfStockMessage,
-                PersonalMessage: req.body.PersonalMessage,
-                MassMessage: req.body.MassMessage,
-            }
-        });
-        await GetallFbPages();
-        if(result.ok === 1) {
-            res.status(200)
-                .json({
-                    FbPageId: req.params.FbPageId,
-                    result: {
-                        ReplyMessage: req.body.ReplyMessage,
-                        OutOfStockMessage: req.body.OutOfStockMessage,
-                        PersonalMessage: req.body.PersonalMessage,
-                        MassMessage: req.body.MassMessage
-                    }
-                });
-        }
-    } catch(error) {
-        res.status(500)
-            .json(errorJsonResponse(error.toString(), error.toString()));
-    }
-}
-
 export async function PersonalMessage(req, res, next) {
     const uniqueId = getGuid();
     try {
@@ -111,10 +84,10 @@ export async function PersonalMessage(req, res, next) {
             let messageDetail = PageResult.PersonalMessage;
             let orderDetail = '';
             result.Items.map((singleItem) => {
-                orderDetail += `- ${singleItem.itemName} : x ${singleItem.qty} : ${singleItem.total} \n    `;
+                orderDetail += `- ${singleItem.itemName} : ${singleItem.keyword} : x ${singleItem.qty} : ${singleItem.total} \n    `;
             });
             messageDetail = messageDetail.replace('{order detail}', orderDetail);
-            messageDetail = messageDetail.replace('{shoppingcartlink}', config.FbAPP.ShoppingLink);
+            //messageDetail = messageDetail.replace('{shoppingcartlink}', config.FbAPP.ShoppingLink);
             const api = {
                 method: 'POST',
                 url: `${config.FbAPP.Base_API_URL}/${PageResult.FbPageId}/messages?&access_token=${PageResult.FbAccessToken}`,
@@ -206,23 +179,19 @@ export async function Messages(req, res, next) {
     }
 }
 
-export async function UpdateDeliveryDate(req, res, next) {
+export async function Update(req, res, next) {
     try {
-        const result = await FbPages.updateOne({FbPageId: req.params.FbPageId}, {
-            $set: {
-                DeliveryDate: req.body.DeliveryDate,
-            }
-        });
+        const result = await FbPages.findOneAndUpdate({FbPageId: req.params.FbPageId}, req.body, {new: true});
         await GetallFbPages();
-        if(result.ok === 1) {
+        if(result) {
             res.status(200)
                 .json({
                     result: 'Successfully updated',
-                    data: {
-                        FbPageId: req.params.FbPageId,
-                        DeliveryDate: req.body.DeliveryDate
-                    }
+                    data: result
                 });
+        } else {
+            res.status(500)
+                .json(errorJsonResponse(JSON.stringify(result), JSON.stringify(result)));
         }
     } catch(error) {
         console.log(error);

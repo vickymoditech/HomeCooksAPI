@@ -199,7 +199,7 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
     }
 }
 
-async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, keyword, Qty, Price, reply_message, outOfStock, orderId, failtosendagain = true) {
+async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, order, reply_message, outOfStock, orderId, failtosendagain = true) {
     try {
         if(from !== null && from !== undefined) {
             let messageDetail = reply_message;
@@ -207,7 +207,10 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 'text': messageDetail
             };
             if(!outOfStock) {
-                let orderDetail = `- ${Description} : ${keyword} : x ${Qty} : ${Price * Qty} \n    `;
+                let orderDetail = '';
+                order.Items.map((singleItem) => {
+                    orderDetail += `- ${singleItem.itemName} : ${singleItem.keyword} : x ${singleItem.qty} : ${singleItem.total} \n    `;
+                });
                 messageDetail = messageDetail.replace('{order detail}', orderDetail);
                 message = {
                     'attachment': {
@@ -244,7 +247,7 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, D
                 return true;
             } catch(error) {
                 if(failtosendagain) {
-                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, Description, keyword, Qty, Price, reply_message, outOfStock, orderId, false);
+                    return await sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, order, reply_message, outOfStock, orderId, false);
                 } else {
                     Log.writeLog(Log.eLogLevel.error, `[sendMessageToUser][again] PageId - [${FbPageId}] CommentId - [${CommentId}] message - [${messageDetail}] : ${JSON.stringify(error)}`, uniqueId);
                     return false;
@@ -298,8 +301,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                     $inc: {stock: -qty}
                                 }, {new: true});
                             if(matchKeyWord && updateQty) {
-                                //Todo save order.
-                                //Todo find User and create one
+                                //Todo Find and create UserDetail
                                 UserDetail.findOrCreate({FbSPID: singleComment.from.id}, {
                                     FbPageId: FbPageId,
                                     Name: singleComment.from.name,
@@ -310,28 +312,39 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                             .tz('Asia/Singapore')
                                             .format();
                                         let currentDate = new Date(momentDateTime);
-                                        let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id}, {
-                                            FbPageId: FbPageId,
-                                            $push: {
-                                                Items: {
-                                                    id: matchKeyWord._id.toString(),
-                                                    itemName: matchKeyWord.description,
-                                                    qty: qty,
-                                                    price: matchKeyWord.price,
-                                                    keyword: matchKeyWord.keyword,
-                                                    total: (matchKeyWord.price * qty)
-                                                }
-                                            },
-                                            Name: singleComment.from.name,
-                                            $inc: {Total: (matchKeyWord.price * qty)},
-                                            Date: currentDate.toUTCString(),
-                                            ShippingName: singleComment.from.name,
-                                            ShippingMobile: result.doc.ShippingMobile,
-                                            ShippingAddress1: result.doc.ShippingAddress1,
-                                            ShippingAddress2: result.doc.ShippingAddress2,
-                                            ShippingAddress3: result.doc.ShippingAddress3,
-                                            ShippingPostalCode: result.doc.ShippingPostalCode,
-                                        }, {upsert: true, new: true, setDefaultsOnInsert: true});
+                                        //Todo Find and save order.
+                                        //Todo Find Inner Item and update or push new item.
+                                        let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id, Status: 'active', 'Items.id': matchKeyWord._id.toString()}, {
+                                            $inc: {
+                                                'Items.$.qty': qty,
+                                                'Items.$.total': (matchKeyWord.price * qty),
+                                                Total: (matchKeyWord.price * qty)
+                                            }
+                                        }, {new: true});
+                                        if(InsertBookingItems === null) {
+                                            InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id, Status: 'active'}, {
+                                                FbPageId: FbPageId,
+                                                $push: {
+                                                    Items: {
+                                                        id: matchKeyWord._id.toString(),
+                                                        itemName: matchKeyWord.description,
+                                                        qty: qty,
+                                                        price: matchKeyWord.price,
+                                                        keyword: matchKeyWord.keyword,
+                                                        total: (matchKeyWord.price * qty)
+                                                    }
+                                                },
+                                                Name: singleComment.from.name,
+                                                $inc: {Total: (matchKeyWord.price * qty)},
+                                                Date: currentDate.toUTCString(),
+                                                ShippingName: singleComment.from.name,
+                                                ShippingMobile: result.doc.ShippingMobile,
+                                                ShippingAddress1: result.doc.ShippingAddress1,
+                                                ShippingAddress2: result.doc.ShippingAddress2,
+                                                ShippingAddress3: result.doc.ShippingAddress3,
+                                                ShippingPostalCode: result.doc.ShippingPostalCode,
+                                            }, {upsert: true, new: true, setDefaultsOnInsert: true});
+                                        }
                                         if(InsertBookingItems) {
                                             let result = await socketPublishMessage(FbPageId, InsertBookingItems);
                                             result = await socketPublishMessage(FbPageId, {
@@ -345,7 +358,8 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                             });
                                             matchKeyWord.stock -= qty;
                                             setCache(KEY_WORDS, AllKeyWord);
-                                            result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, matchKeyWord.keyword, qty, matchKeyWord.price, SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message, false, InsertBookingItems._id);
+                                            const message = SinglePage.ReplyMessage + '\n' + matchKeyWord.reply_message;
+                                            result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, InsertBookingItems, message, false, InsertBookingItems._id);
                                             Log.writeLog(Log.eLogLevel.info, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
                                         } else {
                                             Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(InsertBookingItems)}]`, uniqueId);
@@ -353,7 +367,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                     });
                             }
                             else if(matchKeyWord) {
-                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, matchKeyWord.description, matchKeyWord.keyword, 0, 0, SinglePage.OutOfStockMessage, true, null);
+                                const result = await sendMessageToUser(FbPageId, singleComment.id, FbAccessToken, singleComment.from, null, SinglePage.OutOfStockMessage, true, null);
                             }
                         }
                     } catch(error) {

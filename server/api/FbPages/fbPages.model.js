@@ -14,6 +14,8 @@ let FbPagesSchema = new mongoose.Schema({
     MassMessage: String,
     StatusActiveTime: Date,
     DeliveryDate: mongoose.Schema.Types.Mixed,
+    Minimum: Number,
+    ShippingMinimum: Number
 });
 
 FbPagesSchema.plugin(findOrCreate);
