@@ -6,13 +6,22 @@ let findOrCreate = require('mongoose-findorcreate');
 let OrderSchema = new mongoose.Schema({
     FbSPID: String,
     FbPageId: String,
-    Items: mongoose.Schema.Types.Mixed,
+    Items: [{
+        id: String,
+        itemName: String,
+        qty: Number,
+        price: Number,
+        keyword: String,
+        SKU: String,
+        total: Number
+    }],
     Name: String,
     Total: Number,
     Status: {type: String, default: 'active'},
     FirstOrderDate: Date,
     MostRecentOrderDate: Date,
     ShippingOption: String,
+    ShippingCharge: {type: Number, default: 0},
     PaymentStatus: {type: String, default: 'unpaid'},
     Confirmed: Boolean,
     Date: Date,

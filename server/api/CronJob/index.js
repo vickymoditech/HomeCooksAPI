@@ -77,6 +77,14 @@ setInterval(async() => {
                                             AllCommentsFilter.map(async(singleComment) => {
                                                 const CheckNewComment = NewPost.AllComments.find((data) => data.id === singleComment.id);
                                                 if(!CheckNewComment) {
+                                                    await socketPublishMessage(NewPost.FbPageId, {
+                                                        type: 'NewComment',
+                                                        data: singleComment
+                                                    });
+                                                    await socketPublishMessage('AdminUser', {
+                                                        type: 'NewComment',
+                                                        data: singleComment
+                                                    });
                                                     Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                     await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
                                                     NewPost.AllComments.push(singleComment);
@@ -94,6 +102,14 @@ setInterval(async() => {
                                         } else {
                                             //Todo first Time calling
                                             AllCommentsFilter.map(async(singleComment) => {
+                                                await socketPublishMessage(NewPost.FbPageId, {
+                                                    type: 'NewComment',
+                                                    data: singleComment
+                                                });
+                                                await socketPublishMessage('AdminUser', {
+                                                    type: 'NewComment',
+                                                    data: singleComment
+                                                });
                                                 Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                 await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
                                                 NewPost.AllComments.push(singleComment);
@@ -112,7 +128,7 @@ setInterval(async() => {
                                             NewPost.Is_next = !NewPost.Is_next;
                                         }
                                     }
-                                }, 20 * 1000);
+                                }, 15 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
@@ -170,21 +186,24 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         if(SinglePage && SinglePageCheck) {
             let api = {
                 method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000`
+                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=4000`
             };
             if(nextURL !== null && Is_next === true) {
+                console.log('after');
                 api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000&after=${nextURL}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=4000&after=${nextURL}`
                 };
             }
             if(backURL !== null && Is_next === false) {
+                console.log('before');
                 api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=7000&before=${backURL}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=4000&before=${backURL}`
                 };
             }
             const posts = await axios(api);
+            console.log(posts.data.data.length);
             Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPostId}] : ${JSON.stringify(api)}`, uniqueId);
             Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPostId}] : ${posts.data.data.length}`, uniqueId);
             return posts.data;
@@ -314,29 +333,32 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                         let currentDate = new Date(momentDateTime);
                                         //Todo Find and save order.
                                         //Todo Find Inner Item and update or push new item.
-                                        let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id, Status: 'active', 'Items.id': matchKeyWord._id.toString()}, {
+                                        let InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id, PaymentStatus: 'unpaid', 'Items.id': matchKeyWord._id.toString()}, {
                                             $inc: {
-                                                'Items.$.qty': qty,
+                                                'Items.$.qty': Number(qty),
                                                 'Items.$.total': (matchKeyWord.price * qty),
                                                 Total: (matchKeyWord.price * qty)
-                                            }
+                                            },
+                                            Status: 'active'
                                         }, {new: true});
                                         if(InsertBookingItems === null) {
-                                            InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id, Status: 'active'}, {
+                                            InsertBookingItems = await Order.findOneAndUpdate({FbSPID: singleComment.from.id, PaymentStatus: 'unpaid'}, {
                                                 FbPageId: FbPageId,
                                                 $push: {
                                                     Items: {
                                                         id: matchKeyWord._id.toString(),
                                                         itemName: matchKeyWord.description,
-                                                        qty: qty,
+                                                        qty: Number(qty),
                                                         price: matchKeyWord.price,
                                                         keyword: matchKeyWord.keyword,
+                                                        SKU: matchKeyWord.SKU,
                                                         total: (matchKeyWord.price * qty)
                                                     }
                                                 },
                                                 Name: singleComment.from.name,
                                                 $inc: {Total: (matchKeyWord.price * qty)},
                                                 Date: currentDate.toUTCString(),
+                                                Status: 'active',
                                                 ShippingName: singleComment.from.name,
                                                 ShippingMobile: result.doc.ShippingMobile,
                                                 ShippingAddress1: result.doc.ShippingAddress1,
@@ -346,15 +368,43 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                             }, {upsert: true, new: true, setDefaultsOnInsert: true});
                                         }
                                         if(InsertBookingItems) {
-                                            let result = await socketPublishMessage(FbPageId, InsertBookingItems);
+
+                                            let AddShippingCharge = await Order.findOneAndUpdate({
+                                                _id: InsertBookingItems._id,
+                                                Total: {
+                                                    $lt: SinglePage.Minimum
+                                                }
+                                            }, {
+                                                ShippingCharge: SinglePage.ShippingMinimum
+                                            }, {new: true, setDefaultsOnInsert: true});
+
+                                            if(!AddShippingCharge) {
+                                                AddShippingCharge = await Order.findOneAndUpdate({
+                                                    _id: InsertBookingItems._id,
+                                                    Total: {
+                                                        $gte: SinglePage.Minimum
+                                                    }
+                                                }, {
+                                                    ShippingCharge: 0
+                                                }, {new: true, setDefaultsOnInsert: true});
+                                            }
+                                            InsertBookingItems = AddShippingCharge;
+
+                                            let result = await socketPublishMessage(FbPageId, {
+                                                type: 'order',
+                                                data: InsertBookingItems
+                                            });
                                             result = await socketPublishMessage(FbPageId, {
                                                 type: 'keywordUpdate',
-                                                keyword: updateQty
+                                                data: updateQty
                                             });
-                                            result = await socketPublishMessage('AdminUser', InsertBookingItems);
+                                            result = await socketPublishMessage('AdminUser', {
+                                                type: 'order',
+                                                data: InsertBookingItems
+                                            });
                                             result = await socketPublishMessage('AdminUser', {
                                                 type: 'keywordUpdate',
-                                                keyword: updateQty
+                                                data: updateQty
                                             });
                                             matchKeyWord.stock -= qty;
                                             setCache(KEY_WORDS, AllKeyWord);

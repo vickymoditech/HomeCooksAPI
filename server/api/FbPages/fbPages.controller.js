@@ -209,6 +209,9 @@ export async function GetallFbPages() {
             StatusActiveTime: 1,
             PersonalMessage: 1,
             MassMessage: 1,
+            DeliveryDate: 1,
+            Minimum: 1,
+            ShippingMinimum: 1
         })
             .exec();
         setCache(FB_PAGES, allPages);

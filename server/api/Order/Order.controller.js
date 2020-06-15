@@ -79,6 +79,7 @@ export async function updateOrder(req, res, next) {
         let ItemNotFound = [];
         let reduceQty = [];
 
+        let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
         const findOrder = await Order.findOne({_id: OrderId});
         order.Total = findOrder.Total;
         await Promise.all(order.Items.map(async(singleItem) => {
@@ -127,12 +128,12 @@ export async function updateOrder(req, res, next) {
 
                 let result = await socketPublishMessage(order.FbPageId, {
                     type: 'keywordUpdate',
-                    keyword: updateQty
+                    data: updateQty
                 });
 
                 result = await socketPublishMessage('AdminUser', {
                     type: 'keywordUpdate',
-                    keyword: updateQty
+                    data: updateQty
                 });
                 return true;
             }));
@@ -147,11 +148,24 @@ export async function updateOrder(req, res, next) {
                 DeliveryTimeSlot: order.DeliveryTimeSlot,
             }, {new: true, setDefaultsOnInsert: true});
             order.Total += total;
+
+            if(order.Total < PageDetail.Minimum) {
+                order.ShippingCharge = PageDetail.ShippingMinimum;
+            } else {
+                order.ShippingCharge = 0;
+            }
+
             let UpdateOrder = await Order.findOneAndUpdate({_id: OrderId}, order, {new: true, setDefaultsOnInsert: true});
             if(UpdateOrder) {
                 let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
-                let result = await socketPublishMessage(UpdateOrder.FbPageId, UpdateOrder);
-                result = await socketPublishMessage('AdminUser', UpdateOrder);
+                let result = await socketPublishMessage(UpdateOrder.FbPageId, {
+                    type: 'order',
+                    data: UpdateOrder
+                });
+                result = await socketPublishMessage('AdminUser', {
+                    type: 'order',
+                    data: UpdateOrder
+                });
                 res.status(200)
                     .json({
                         data: {
