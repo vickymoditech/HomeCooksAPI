@@ -128,7 +128,7 @@ setInterval(async() => {
                                             NewPost.Is_next = !NewPost.Is_next;
                                         }
                                     }
-                                }, 15 * 1000);
+                                }, 10 * 1000);
                             } else {
                                 findOldPost.Is_Online = true;
                             }
