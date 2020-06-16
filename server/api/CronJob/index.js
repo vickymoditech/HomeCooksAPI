@@ -58,6 +58,7 @@ setInterval(async() => {
                                     beforeToken: null,
                                     Is_Online: true,
                                     Is_next: null,
+                                    count: 1
                                 };
                                 NewPage.AllPosts.push(NewPost);
                                 //Todo work here get all new comments
@@ -74,7 +75,7 @@ setInterval(async() => {
 
                                         if(NewPost.AllComments !== null && NewPost.AllComments.length > 0) {
                                             //Todo second Time
-                                            AllCommentsFilter.map(async(singleComment) => {
+                                            await Promise.all(AllCommentsFilter.map(async(singleComment) => {
                                                 const CheckNewComment = NewPost.AllComments.find((data) => data.id === singleComment.id);
                                                 if(!CheckNewComment) {
                                                     await socketPublishMessage(NewPost.FbPageId, {
@@ -89,19 +90,24 @@ setInterval(async() => {
                                                     await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
                                                     NewPost.AllComments.push(singleComment);
                                                 }
-                                            });
+                                                return true;
+                                            }));
 
                                             //Todo save all the comments and Next Link If we have.
                                             //NewPost.AllComments = AllComments.data;
                                             if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
-                                                NewPost.nextToken = AllComments.paging.cursors.after;
-                                                NewPost.beforeToken = AllComments.paging.cursors.before;
-                                                NewPost.Is_next = true;
+                                                if(NewPost.count === 2) {
+                                                    NewPost.nextToken = AllComments.paging.cursors.after;
+                                                    NewPost.beforeToken = AllComments.paging.cursors.before;
+                                                    NewPost.Is_next = true;
+                                                    NewPost.count = 0;
+                                                }
+                                                NewPost.count++;
                                             }
 
                                         } else {
                                             //Todo first Time calling
-                                            AllCommentsFilter.map(async(singleComment) => {
+                                            await Promise.all(AllCommentsFilter.map(async(singleComment) => {
                                                 await socketPublishMessage(NewPost.FbPageId, {
                                                     type: 'NewComment',
                                                     data: singleComment
@@ -113,7 +119,8 @@ setInterval(async() => {
                                                 Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                 await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
                                                 NewPost.AllComments.push(singleComment);
-                                            });
+                                                return true;
+                                            }));
 
                                             //Todo save All the Comments and Next Link If we have.
                                             //NewPost.AllComments = AllComments.data;
@@ -186,20 +193,20 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         if(SinglePage && SinglePageCheck) {
             let api = {
                 method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=4000`
+                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000`
             };
             if(nextURL !== null && Is_next === true) {
                 console.log('after');
                 api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=4000&after=${nextURL}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000&after=${nextURL}`
                 };
             }
             if(backURL !== null && Is_next === false) {
                 console.log('before');
                 api = {
                     method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=4000&before=${backURL}`
+                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000&before=${backURL}`
                 };
             }
             const posts = await axios(api);
