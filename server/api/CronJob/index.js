@@ -12,15 +12,17 @@ import Log from '../../config/Log';
 
 let moment = require('moment-timezone');
 
-let GetAllPages = {
-    AllPages: []
-};
+let GetAllPages = null;
 
 let data = GetallKeywords();
 data = GetallFbPages();
 const uniqueId = getGuid();
 
 export async function StartService() {
+
+    GetAllPages = {
+        AllPages: []
+    };
 
     let data = GetallKeywords();
     data = GetallFbPages();
