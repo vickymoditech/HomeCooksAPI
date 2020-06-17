@@ -258,6 +258,11 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, o
                                     'type': 'web_url',
                                     'url': config.FbAPP.ShoppingLink + orderId,
                                     'title': 'View Order'
+                                },
+                                {
+                                    'type': 'postback',
+                                    'title': 'Hi! Please proceed 👋',
+                                    'payload': 'Hi! Please proceed 👋'
                                 }
                             ]
                         }
@@ -378,8 +383,6 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                                 ShippingName: singleComment.from.name,
                                                 ShippingMobile: result.doc.ShippingMobile,
                                                 ShippingAddress1: result.doc.ShippingAddress1,
-                                                ShippingAddress2: result.doc.ShippingAddress2,
-                                                ShippingAddress3: result.doc.ShippingAddress3,
                                                 ShippingPostalCode: result.doc.ShippingPostalCode,
                                             }, {upsert: true, new: true, setDefaultsOnInsert: true});
                                         }
