@@ -29,7 +29,6 @@ let OrderSchema = new mongoose.Schema({
     ShippingMobile: String,
     ShippingAddress1: String,
     ShippingAddress2: String,
-    ShippingAddress3: String,
     ShippingPostalCode: String,
     DeliveryTimeSlot: mongoose.Schema.Types.Mixed
 }, {collection: 'fbliveorder'});
