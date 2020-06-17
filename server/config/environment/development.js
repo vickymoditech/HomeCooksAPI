@@ -17,7 +17,6 @@ module.exports = {
         ShoppingLink: 'https://liveorder.thevelocitee.com/checkout/',
         scope: ['pages_show_list'
             , 'pages_manage_metadata'
-            , 'pages_manage_posts'
             , 'pages_read_engagement'
             , 'pages_read_user_content'
             , 'pages_messaging'
