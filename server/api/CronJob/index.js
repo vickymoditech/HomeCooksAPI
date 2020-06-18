@@ -133,7 +133,7 @@ export async function StartService() {
                                                                 data: singleComment
                                                             });
                                                             Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
-                                                            await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
+                                                            await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken, null, false);
                                                             NewPost.AllComments.push(singleComment);
                                                         }
                                                         return true;
@@ -163,7 +163,7 @@ export async function StartService() {
                                                             data: singleComment
                                                         });
                                                         Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
-                                                        await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
+                                                        await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken, null, false);
                                                         NewPost.AllComments.push(singleComment);
                                                         return true;
                                                     }));
@@ -356,10 +356,10 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, o
     }
 }
 
-async function order(singleComment, FbPageId, FbAccessToken, UserDetails) {
+async function order(singleComment, FbPageId, FbAccessToken, UserDetails, Is_live = true) {
     try {
-        if(singleComment.from !== null && singleComment.from !== undefined && UserDetails.from !== null && UserDetails.from !== undefined) {
-            singleComment.from.id = UserDetails.from.id;
+        if(singleComment.from !== null && singleComment.from !== undefined && (!Is_live || (UserDetails.from !== null && UserDetails.from !== undefined))) {
+            Is_live && (singleComment.from.id = UserDetails.from.id);
             const AllPagesCache = getCache(FB_PAGES);
             const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
             if(SinglePage) {
@@ -494,6 +494,7 @@ async function order(singleComment, FbPageId, FbAccessToken, UserDetails) {
                             }
                         }
                     } catch(error) {
+                        console.log(error);
                         Log.writeLog(Log.eLogLevel.error, `[saveOrder] order - [${JSON.stringify(error)}]`, uniqueId);
                     }
                 }
@@ -503,6 +504,7 @@ async function order(singleComment, FbPageId, FbAccessToken, UserDetails) {
             return true;
         }
     } catch(error) {
+        console.log(error);
         Log.writeLog(Log.eLogLevel.error, `[saveOrder] ${JSON.stringify(error)}`, uniqueId);
         return false;
     }
