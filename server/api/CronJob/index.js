@@ -10,6 +10,8 @@ import Keyword from '../keyword/keyword.model';
 import UserDetail from '../UserDetail/UserDetail.model';
 import Log from '../../config/Log';
 
+let EventSource = require('eventsource');
+
 let moment = require('moment-timezone');
 
 let GetAllPages = null;
@@ -65,26 +67,93 @@ export async function StartService() {
                                         beforeToken: null,
                                         Is_Online: true,
                                         Is_next: null,
+                                        eventObject: null,
                                         count: 1
                                     };
                                     NewPage.AllPosts.push(NewPost);
                                     //Todo work here get all new comments
-                                    setInterval(async() => {
-                                        const AllComments = await getAllComments(NewPost.FbPageId, NewPost.FbPostId, NewPost.FbAccessToken, NewPost.AllComments, NewPost.nextToken, NewPost.beforeToken, NewPost.Is_next);
-                                        if(AllComments !== null && AllComments.data.length > 0) {
+                                    //Todo check is it Live Video or not.
+                                    if(singlePost.story !== undefined && singlePost.story !== null) {
+                                        console.log('new Live Video');
+                                        Log.writeLog(Log.eLogLevel.info, `[New Live Video] : ${JSON.stringify(singlePost)}`, uniqueId);
+                                        const splitPostId = postId.toString()
+                                            .split('_');
+                                        const LiveVideoId = splitPostId[1];
+                                        const PageAccessToken = singlePages.FbAccessToken;
+                                        const commentRate = 'one_hundred_per_second';
+                                        const fields = 'from{name,id},message';
+                                        const URL = `${config.FbAPP.Base_Streaming_API_URL}/${LiveVideoId}/live_comments?access_token=${PageAccessToken}&comment_rate=${commentRate}&fields=${fields}`;
+                                        
+                                        let source = new EventSource(URL);
+                                        NewPost.eventObject = source;
 
-                                            //Fetch Last new Comments from the post.
-                                            const AllCommentsFilter = AllComments.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
-                                                .format() >= moment()
-                                                .subtract((10 * 60), 'seconds')
-                                                .tz('Asia/Singapore')
-                                                .format());
+                                        source.onmessage = async function(event) {
+                                            if(event.type === 'message') {
+                                                const singleComment = JSON.parse(event.data);
+                                                const UserDetail = await getUserDetail(singleComment.id, NewPost.FbAccessToken);
+                                                await socketPublishMessage(NewPost.FbPageId, {
+                                                    type: 'NewComment',
+                                                    data: singleComment
+                                                });
+                                                await socketPublishMessage('AdminUser', {
+                                                    type: 'NewComment',
+                                                    data: singleComment
+                                                });
+                                                Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
+                                                await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken, UserDetail);
+                                            }
+                                        };
 
-                                            if(NewPost.AllComments !== null && NewPost.AllComments.length > 0) {
-                                                //Todo second Time
-                                                await Promise.all(AllCommentsFilter.map(async(singleComment) => {
-                                                    const CheckNewComment = NewPost.AllComments.find((data) => data.id === singleComment.id);
-                                                    if(!CheckNewComment) {
+                                    } else {
+                                        //Todo fetch new comments for the post
+                                        console.log('new Post');
+                                        Log.writeLog(Log.eLogLevel.info, `[New Normal Post] : ${JSON.stringify(singlePost)}`, uniqueId);
+                                        setInterval(async() => {
+                                            const AllComments = await getAllComments(NewPost.FbPageId, NewPost.FbPostId, NewPost.FbAccessToken, NewPost.AllComments, NewPost.nextToken, NewPost.beforeToken, NewPost.Is_next);
+                                            if(AllComments !== null && AllComments.data.length > 0) {
+
+                                                //Fetch Last new Comments from the post.
+                                                const AllCommentsFilter = AllComments.data.filter((data) => moment.tz(data.created_time, 'Asia/Singapore')
+                                                    .format() >= moment()
+                                                    .subtract((10 * 60), 'seconds')
+                                                    .tz('Asia/Singapore')
+                                                    .format());
+
+                                                if(NewPost.AllComments !== null && NewPost.AllComments.length > 0) {
+                                                    //Todo second Time
+                                                    await Promise.all(AllCommentsFilter.map(async(singleComment) => {
+                                                        const CheckNewComment = NewPost.AllComments.find((data) => data.id === singleComment.id);
+                                                        if(!CheckNewComment) {
+                                                            await socketPublishMessage(NewPost.FbPageId, {
+                                                                type: 'NewComment',
+                                                                data: singleComment
+                                                            });
+                                                            await socketPublishMessage('AdminUser', {
+                                                                type: 'NewComment',
+                                                                data: singleComment
+                                                            });
+                                                            Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
+                                                            await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
+                                                            NewPost.AllComments.push(singleComment);
+                                                        }
+                                                        return true;
+                                                    }));
+
+                                                    //Todo save all the comments and Next Link If we have.
+                                                    //NewPost.AllComments = AllComments.data;
+                                                    if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
+                                                        if(NewPost.count === 2) {
+                                                            NewPost.nextToken = AllComments.paging.cursors.after;
+                                                            NewPost.beforeToken = AllComments.paging.cursors.before;
+                                                            NewPost.Is_next = true;
+                                                            NewPost.count = 0;
+                                                        }
+                                                        NewPost.count++;
+                                                    }
+
+                                                } else {
+                                                    //Todo first Time calling
+                                                    await Promise.all(AllCommentsFilter.map(async(singleComment) => {
                                                         await socketPublishMessage(NewPost.FbPageId, {
                                                             type: 'NewComment',
                                                             data: singleComment
@@ -96,53 +165,24 @@ export async function StartService() {
                                                         Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                         await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
                                                         NewPost.AllComments.push(singleComment);
-                                                    }
-                                                    return true;
-                                                }));
+                                                        return true;
+                                                    }));
 
-                                                //Todo save all the comments and Next Link If we have.
-                                                //NewPost.AllComments = AllComments.data;
-                                                if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
-                                                    if(NewPost.count === 2) {
+                                                    //Todo save All the Comments and Next Link If we have.
+                                                    //NewPost.AllComments = AllComments.data;
+                                                    if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
                                                         NewPost.nextToken = AllComments.paging.cursors.after;
                                                         NewPost.beforeToken = AllComments.paging.cursors.before;
                                                         NewPost.Is_next = true;
-                                                        NewPost.count = 0;
                                                     }
-                                                    NewPost.count++;
                                                 }
-
                                             } else {
-                                                //Todo first Time calling
-                                                await Promise.all(AllCommentsFilter.map(async(singleComment) => {
-                                                    await socketPublishMessage(NewPost.FbPageId, {
-                                                        type: 'NewComment',
-                                                        data: singleComment
-                                                    });
-                                                    await socketPublishMessage('AdminUser', {
-                                                        type: 'NewComment',
-                                                        data: singleComment
-                                                    });
-                                                    Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
-                                                    await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken);
-                                                    NewPost.AllComments.push(singleComment);
-                                                    return true;
-                                                }));
-
-                                                //Todo save All the Comments and Next Link If we have.
-                                                //NewPost.AllComments = AllComments.data;
-                                                if(AllComments.paging && AllComments.paging.cursors && AllComments.paging.cursors.after) {
-                                                    NewPost.nextToken = AllComments.paging.cursors.after;
-                                                    NewPost.beforeToken = AllComments.paging.cursors.before;
-                                                    NewPost.Is_next = true;
+                                                if(AllComments !== null && AllComments.data.length === 0) {
+                                                    NewPost.Is_next = !NewPost.Is_next;
                                                 }
                                             }
-                                        } else {
-                                            if(AllComments !== null && AllComments.data.length === 0) {
-                                                NewPost.Is_next = !NewPost.Is_next;
-                                            }
-                                        }
-                                    }, 10 * 1000);
+                                        }, 25 * 1000);
+                                    }
                                 } else {
                                     findOldPost.Is_Online = true;
                                 }
@@ -153,7 +193,20 @@ export async function StartService() {
             });
         }
     }, 10 * 1000);
+}
 
+async function getUserDetail(CommentId, FbPageAccessToken) {
+    try {
+        const api = {
+            method: 'GET',
+            url: `${config.FbAPP.Base_API_URL}/${CommentId}?fields=from,object&access_token=${FbPageAccessToken}`
+        };
+        const userDetail = await axios(api);
+        return userDetail.data;
+    } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[getUserDetail][${CommentId}] : ${JSON.stringify(error)}`, uniqueId);
+        return null;
+    }
 }
 
 async function getAllPosts(FbPageId, FbPageAccessToken, Is_deleted) {
@@ -303,15 +356,16 @@ async function sendMessageToUser(FbPageId, CommentId, FbPageAccessToken, from, o
     }
 }
 
-async function order(singleComment, FbPageId, FbAccessToken) {
+async function order(singleComment, FbPageId, FbAccessToken, UserDetails) {
     try {
-        if(singleComment.from !== null && singleComment.from !== undefined) {
+        if(singleComment.from !== null && singleComment.from !== undefined && UserDetails.from !== null && UserDetails.from !== undefined) {
+            singleComment.from.id = UserDetails.from.id;
             const AllPagesCache = getCache(FB_PAGES);
             const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
             if(SinglePage) {
                 const AllKeyWord = getCache(KEY_WORDS);
                 const splitKeyword = singleComment.message.toString()
-                    .split('+');
+                    .split('×');
                 if(splitKeyword.length === 2) {
                     try {
                         const qty = Number(splitKeyword[1].trim());
@@ -322,7 +376,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                         //Todo check order.
                         const checkOrder = await Order.findOne({FbSPID: singleComment.from.id});
                         let placeOrder = true;
-                        if(checkOrder) {
+                        if(checkOrder && matchKeyWord) {
                             const findItems = checkOrder.Items.filter((data) => data.id === matchKeyWord._id.toString());
                             let totalCount = 0;
                             findItems.map((data) => {
@@ -332,7 +386,7 @@ async function order(singleComment, FbPageId, FbAccessToken) {
                                 placeOrder = false;
                             }
                         }
-                        if(placeOrder) {
+                        if(placeOrder && matchKeyWord) {
                             let updateQty = await Keyword.findOneAndUpdate(
                                 {
                                     _id: matchKeyWord._id,
@@ -456,13 +510,13 @@ async function order(singleComment, FbPageId, FbAccessToken) {
 
 const result = StartService();
 
-setInterval(async() => {
-    let currentTime = moment.tz('Asia/Singapore')
-        .format();
-    let currentDate = new Date(currentTime);
-    let hours = currentDate.getHours();
-    let minutes = currentDate.getMinutes();
-    if(hours === 2 && minutes === 0) {
-        await StartService();
-    }
-}, 60000);
+// setInterval(async() => {
+//     let currentTime = moment.tz('Asia/Singapore')
+//         .format();
+//     let currentDate = new Date(currentTime);
+//     let hours = currentDate.getHours();
+//     let minutes = currentDate.getMinutes();
+//     if(hours === 2 && minutes === 0) {
+//         await StartService();
+//     }
+// }, 60000);

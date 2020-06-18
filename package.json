@@ -23,6 +23,7 @@
         "core-js": "^2.5.0",
         "ejs": "^2.5.3",
         "errorhandler": "^1.4.2",
+        "eventsource": "^1.0.7",
         "express": "^4.13.3",
         "express-session": "^1.11.3",
         "express-static-gzip": "~0.3.2",
