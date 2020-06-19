@@ -364,8 +364,12 @@ async function order(singleComment, FbPageId, FbAccessToken, UserDetails, Is_liv
             const SinglePage = AllPagesCache.find((singlePageCache) => singlePageCache.FbPageId === FbPageId && singlePageCache.Is_Live === true);
             if(SinglePage) {
                 const AllKeyWord = getCache(KEY_WORDS);
-                const splitKeyword = singleComment.message.toString()
-                    .split('×');
+                let comment_message = singleComment.message.toString()
+                    .replace('×', 'x');
+                comment_message = comment_message.replace('X', 'x');
+                comment_message = comment_message.replace('*', 'x');
+
+                const splitKeyword = comment_message.split('x');
                 if(splitKeyword.length === 2) {
                     try {
                         const qty = Number(splitKeyword[1].trim());
