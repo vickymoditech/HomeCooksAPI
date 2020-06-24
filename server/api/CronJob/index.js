@@ -97,14 +97,14 @@ export async function StartService() {
                                                 }
                                                 if(UserDetail !== null) {
                                                     //Todo New comment Socket message.
-                                                    await socketPublishMessage(NewPost.FbPageId, {
-                                                        type: 'NewComment',
-                                                        data: singleComment
-                                                    });
-                                                    await socketPublishMessage('AdminUser', {
-                                                        type: 'NewComment',
-                                                        data: singleComment
-                                                    });
+                                                    // await socketPublishMessage(NewPost.FbPageId, {
+                                                    //     type: 'NewComment',
+                                                    //     data: singleComment
+                                                    // });
+                                                    // await socketPublishMessage('AdminUser', {
+                                                    //     type: 'NewComment',
+                                                    //     data: singleComment
+                                                    // });
                                                     Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                     await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken, UserDetail);
                                                 }
