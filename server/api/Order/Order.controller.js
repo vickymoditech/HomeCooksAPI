@@ -193,9 +193,10 @@ export async function checkout(req, res, next) {
     const uniqueId = getGuid();
     try {
         Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(req.body)}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(req.params)}`, uniqueId);
         res.status(200)
             .json({result: 'success'});
     } catch(error) {
-        Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(error)}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.error, `[checkout] : ${JSON.stringify(error)}`, uniqueId);
     }
 }
