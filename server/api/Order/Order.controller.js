@@ -5,6 +5,10 @@ import FbPage from '../FbPages/fbPages.model';
 import Keyword from '../keyword/keyword.model';
 import {socketPublishMessage} from '../Socket';
 import Log from '../../config/Log';
+import config from '../../config/environment';
+import axios from 'axios/index';
+
+let CryptoJS = require('crypto-js');
 
 function respondWithResult(res, statusCode) {
     statusCode = statusCode || 200;
@@ -189,14 +193,81 @@ export async function updateOrder(req, res, next) {
     }
 }
 
-export async function checkout(req, res, next) {
+export async function paymentCallback(req, res, next) {
     const uniqueId = getGuid();
     try {
-        Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(req.body)}`, uniqueId);
-        Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(req.params)}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.info, `[paymentCallback] : ${JSON.stringify(req.body)}`, uniqueId);
         res.status(200)
             .json({result: 'success'});
     } catch(error) {
-        Log.writeLog(Log.eLogLevel.error, `[checkout] : ${JSON.stringify(error)}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.error, `[paymentCallback] : ${JSON.stringify(error)}`, uniqueId);
     }
 }
+
+export async function checkout(req, res, next) {
+    const uniqueId = getGuid();
+    try {
+        let FindOrder = await Order.findOne({_id: req.params.id});
+        Log.writeLog(Log.eLogLevel.info, `[checkout][order] : ${JSON.stringify(FindOrder)}`, uniqueId);
+        if(FindOrder) {
+
+            let http_method = 'post';                // Lower case.
+            let url_path = '/v1/checkout';    // Portion after the base URL.
+            let salt = Math.floor(100000 + Math.random() * 900000000000);  // Randomly generated for each request.
+            let timestamp = (Math.floor(new Date().getTime() / 1000) - 10).toString(); // Current Unix time.
+            let access_key = config.Rapyd.access_key;     // The access key received from Rapyd.
+            let secret_key = config.Rapyd.secret_key;     // Never transmit the secret key by itself.
+
+            let body = {
+                amount: (FindOrder.Total + FindOrder.ShippingCharge),
+                complete_payment_url: config.Rapyd.complete_payment_url,
+                country: 'SG',
+                currency: 'SGD',
+                error_payment_url: config.Rapyd.error_payment_url,
+                payment_method_type: null,
+                payment_method_type_categories: [
+                    'card',
+                    'bank_redirect',
+                    'bank_transfer'
+                ]
+            };
+
+            let to_sign = http_method + url_path + salt + timestamp + access_key + secret_key + JSON.stringify(body);
+            let signature = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(to_sign, secret_key));
+            signature = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(signature));
+
+            const api = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'access_key': access_key,
+                    'salt': salt,
+                    'signature': signature,
+                    'timestamp': timestamp
+                },
+                url: 'https://sandboxapi.rapyd.net/v1/checkout',
+                data: body
+            };
+
+            axios(api)
+                .then((response) => {
+                    let redirectUrl = response.data.data.redirect_url;
+                    res.status(200)
+                        .json({redirectUrl});
+                })
+                .catch((error) => {
+                    res.status(400)
+                        .json(errorJsonResponse(error.toString(), error.toString()));
+                });
+
+        } else {
+            res.status(400)
+                .json(errorJsonResponse('your order has been removed', 'your order has been removed'));
+        }
+    } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[checkout] : ${JSON.stringify(error)}`, uniqueId);
+        res.status(501)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+}
+
