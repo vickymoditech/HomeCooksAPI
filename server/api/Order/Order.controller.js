@@ -1,9 +1,10 @@
 import Order from './Order.model';
-import {errorJsonResponse} from '../../config/commonHelper';
+import {errorJsonResponse, getGuid} from '../../config/commonHelper';
 import UserDetail from '../UserDetail/UserDetail.model';
 import FbPage from '../FbPages/fbPages.model';
 import Keyword from '../keyword/keyword.model';
 import {socketPublishMessage} from '../Socket';
+import Log from '../../config/Log';
 
 function respondWithResult(res, statusCode) {
     statusCode = statusCode || 200;
@@ -185,5 +186,15 @@ export async function updateOrder(req, res, next) {
     } catch(error) {
         res.status(501)
             .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+}
+
+export async function checkout(req, res, next) {
+    const uniqueId = getGuid();
+    try {
+        Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(req.body)}`, uniqueId);
+        res.status(200);
+    } catch(error) {
+        Log.writeLog(Log.eLogLevel.info, `[checkout] : ${JSON.stringify(error)}`, uniqueId);
     }
 }
