@@ -193,7 +193,7 @@ export async function updateOrder(req, res, next) {
     }
 }
 
-export async function paymentCallback(req, res, next) {
+export async function paymentCallbackGET(req, res, next) {
     const uniqueId = getGuid();
     try {
         Log.writeLog(Log.eLogLevel.info, `[paymentCallback] : ${JSON.stringify(req.body)}`, uniqueId);
@@ -201,6 +201,17 @@ export async function paymentCallback(req, res, next) {
             .json({result: 'success'});
     } catch(error) {
         Log.writeLog(Log.eLogLevel.error, `[paymentCallback] : ${JSON.stringify(error)}`, uniqueId);
+    }
+}
+
+export async function paymentCallbackPOST(req, res, next) {
+    const uniqueId = getGuid();
+    try {
+        Log.writeLog(Log.eLogLevel.info, `[paymentCallback][POST] : ${JSON.stringify(req.body)}`, uniqueId);
+        res.status(200)
+            .json({result: 'success'});
+    } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[paymentCallback][POST] : ${JSON.stringify(error)}`, uniqueId);
     }
 }
 
@@ -249,8 +260,11 @@ export async function checkout(req, res, next) {
                 data: body
             };
 
+            Log.writeLog(Log.eLogLevel.info, `[checkout][rapyd][request] : ${JSON.stringify(api)}`, uniqueId);
+
             axios(api)
                 .then((response) => {
+                    Log.writeLog(Log.eLogLevel.info, `[checkout][rapyd][response] : ${JSON.stringify(response.data)}`, uniqueId);
                     let redirectUrl = response.data.data.redirect_url;
                     res.status(200)
                         .json({redirectUrl});

@@ -161,14 +161,14 @@ export async function StartService() {
                                                 } else {
                                                     //Todo first Time calling
                                                     await Promise.all(AllCommentsFilter.map(async(singleComment) => {
-                                                        await socketPublishMessage(NewPost.FbPageId, {
-                                                            type: 'NewComment',
-                                                            data: singleComment
-                                                        });
-                                                        await socketPublishMessage('AdminUser', {
-                                                            type: 'NewComment',
-                                                            data: singleComment
-                                                        });
+                                                        // await socketPublishMessage(NewPost.FbPageId, {
+                                                        //     type: 'NewComment',
+                                                        //     data: singleComment
+                                                        // });
+                                                        // await socketPublishMessage('AdminUser', {
+                                                        //     type: 'NewComment',
+                                                        //     data: singleComment
+                                                        // });
                                                         Log.writeLog(Log.eLogLevel.info, `[New Comment] : ${JSON.stringify(singleComment)}`, uniqueId);
                                                         await order(singleComment, NewPost.FbPageId, NewPost.FbAccessToken, null, false);
                                                         NewPost.AllComments.push(singleComment);
