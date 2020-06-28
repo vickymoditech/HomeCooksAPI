@@ -193,25 +193,41 @@ export async function updateOrder(req, res, next) {
     }
 }
 
-export async function paymentCallbackGET(req, res, next) {
+export async function paymentCallback(req, res, next) {
     const uniqueId = getGuid();
     try {
         Log.writeLog(Log.eLogLevel.info, `[paymentCallback] : ${JSON.stringify(req.body)}`, uniqueId);
+        const paymentResponse = req.body;
+        if(paymentResponse) {
+            const orderId = paymentResponse.data.complete_payment_url;
+            if(paymentResponse.type === 'PAYMENT_COMPLETED') {
+                let UpdateOrder = await Order.findOneAndUpdate({_id: orderId}, {
+                    PaymentStatus: 'paid',
+                    PaymentResponse: req.body
+                }, {new: true, setDefaultsOnInsert: true});
+
+                let result = await socketPublishMessage(UpdateOrder.FbPageId, {
+                    type: 'order',
+                    data: UpdateOrder
+                });
+                result = await socketPublishMessage('AdminUser', {
+                    type: 'order',
+                    data: UpdateOrder
+                });
+                Log.writeLog(Log.eLogLevel.info, `[paymentCallback][updateOrder] : ${JSON.stringify(UpdateOrder)}`, uniqueId);
+
+            }
+            else {
+                let UpdateOrder = await Order.findOneAndUpdate({_id: orderId}, {
+                    PaymentResponse: req.body
+                }, {new: true, setDefaultsOnInsert: true});
+                Log.writeLog(Log.eLogLevel.error, `[paymentCallback][updateOrder] : ${JSON.stringify(UpdateOrder)}`, uniqueId);
+            }
+        }
         res.status(200)
-            .json({result: 'success'});
+            .json({});
     } catch(error) {
         Log.writeLog(Log.eLogLevel.error, `[paymentCallback] : ${JSON.stringify(error)}`, uniqueId);
-    }
-}
-
-export async function paymentCallbackPOST(req, res, next) {
-    const uniqueId = getGuid();
-    try {
-        Log.writeLog(Log.eLogLevel.info, `[paymentCallback][POST] : ${JSON.stringify(req.body)}`, uniqueId);
-        res.status(200)
-            .json({result: 'success'});
-    } catch(error) {
-        Log.writeLog(Log.eLogLevel.error, `[paymentCallback][POST] : ${JSON.stringify(error)}`, uniqueId);
     }
 }
 
@@ -231,7 +247,7 @@ export async function checkout(req, res, next) {
 
             let body = {
                 amount: (FindOrder.Total + FindOrder.ShippingCharge),
-                complete_payment_url: config.Rapyd.complete_payment_url,
+                complete_payment_url: FindOrder._id,
                 country: 'SG',
                 currency: 'SGD',
                 error_payment_url: config.Rapyd.error_payment_url,
@@ -263,13 +279,17 @@ export async function checkout(req, res, next) {
             Log.writeLog(Log.eLogLevel.info, `[checkout][rapyd][request] : ${JSON.stringify(api)}`, uniqueId);
 
             axios(api)
-                .then((response) => {
+                .then(async(response) => {
                     Log.writeLog(Log.eLogLevel.info, `[checkout][rapyd][response] : ${JSON.stringify(response.data)}`, uniqueId);
+                    let UpdateOrder = await Order.findOneAndUpdate({_id: FindOrder._id}, {
+                        CheckoutResponse: response.data
+                    }, {new: true, setDefaultsOnInsert: true});
                     let redirectUrl = response.data.data.redirect_url;
                     res.status(200)
                         .json({redirectUrl});
                 })
                 .catch((error) => {
+                    Log.writeLog(Log.eLogLevel.error, `[checkout][rapyd][response] : ${JSON.stringify(error)}`, uniqueId);
                     res.status(400)
                         .json(errorJsonResponse(error.toString(), error.toString()));
                 });

@@ -30,7 +30,9 @@ let OrderSchema = new mongoose.Schema({
     ShippingAddress1: String,
     ShippingAddress2: String,
     ShippingPostalCode: String,
-    DeliveryTimeSlot: mongoose.Schema.Types.Mixed
+    DeliveryTimeSlot: mongoose.Schema.Types.Mixed,
+    CheckoutResponse: mongoose.Schema.Types.Mixed,
+    PaymentResponse: mongoose.Schema.Types.Mixed
 }, {collection: 'fbliveorder'});
 
 OrderSchema.plugin(findOrCreate);
