@@ -200,7 +200,7 @@ export async function paymentCallback(req, res, next) {
         const paymentResponse = req.body;
         if(paymentResponse) {
             const orderId = paymentResponse.data.complete_payment_url;
-            if(paymentResponse.type === 'PAYMENT_COMPLETED') {
+            if(paymentResponse.type === 'PAYMENT_SUCCEEDED') {
                 let UpdateOrder = await Order.findOneAndUpdate({_id: orderId}, {
                     PaymentStatus: 'paid',
                     PaymentResponse: req.body
