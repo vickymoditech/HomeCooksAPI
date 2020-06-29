@@ -272,7 +272,7 @@ export async function checkout(req, res, next) {
                     'signature': signature,
                     'timestamp': timestamp
                 },
-                url: 'https://sandboxapi.rapyd.net/v1/checkout',
+                url: 'https://api.rapyd.net/v1/checkout',
                 data: body
             };
 
