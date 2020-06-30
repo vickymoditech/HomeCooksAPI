@@ -25,8 +25,8 @@ module.exports = {
     },
 
     Rapyd: {
-        access_key: '049E05D3BE8E873D9C61',
-        secret_key: 'fb6c662dedd34c10f229069617844bca418d6282804d7e6e1ef659538940671c7c5d60718c43262f',
+        access_key: 'FB235C1D71E06E9685A1',
+        secret_key: '8071a69e374e3d6c4efffeba46d97994011e045b0db1c905fdf7526fd194e144b5c6ba5a76143884',
         complete_payment_url: 'https://liveorder.thevelocitee.com/success',
         error_payment_url: 'https://liveorder.thevelocitee.com/error'
     },

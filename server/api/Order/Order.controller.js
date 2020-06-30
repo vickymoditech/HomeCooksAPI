@@ -253,8 +253,6 @@ export async function checkout(req, res, next) {
                 error_payment_url: config.Rapyd.error_payment_url,
                 payment_method_type: null,
                 payment_method_type_categories: [
-                    'card',
-                    'bank_redirect',
                     'bank_transfer'
                 ]
             };
