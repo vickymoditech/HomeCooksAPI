@@ -6,6 +6,7 @@ let findOrCreate = require('mongoose-findorcreate');
 let OrderSchema = new mongoose.Schema({
     FbSPID: String,
     FbPageId: String,
+    BoxifyOrderNumber: String,
     Items: [{
         id: String,
         itemName: String,

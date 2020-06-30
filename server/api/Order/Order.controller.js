@@ -1,5 +1,5 @@
 import Order from './Order.model';
-import {errorJsonResponse, getGuid} from '../../config/commonHelper';
+import {errorJsonResponse, getCache, getGuid, KEY_WORDS} from '../../config/commonHelper';
 import UserDetail from '../UserDetail/UserDetail.model';
 import FbPage from '../FbPages/fbPages.model';
 import Keyword from '../keyword/keyword.model';
@@ -7,6 +7,8 @@ import {socketPublishMessage} from '../Socket';
 import Log from '../../config/Log';
 import config from '../../config/environment';
 import axios from 'axios/index';
+
+let moment = require('moment-timezone');
 
 let CryptoJS = require('crypto-js');
 
@@ -253,6 +255,8 @@ export async function checkout(req, res, next) {
                 error_payment_url: config.Rapyd.error_payment_url,
                 payment_method_type: null,
                 payment_method_type_categories: [
+                    'card',
+                    'bank_redirect',
                     'bank_transfer'
                 ]
             };
@@ -303,3 +307,142 @@ export async function checkout(req, res, next) {
     }
 }
 
+export async function importOrder(req, res, next) {
+    const uniqueId = getGuid();
+    try {
+        const FbPageId = req.params.FbPageId;
+        const orders = req.body.order;
+        const AllKeyWord = getCache(KEY_WORDS);
+        let importFailOrders = [];
+
+        Log.writeLog(Log.eLogLevel.info, `[importOrder][importData] : ${JSON.stringify(orders)}`, uniqueId);
+
+        let momentDateTime = moment()
+            .tz('Asia/Singapore')
+            .format();
+        let currentDate = new Date(momentDateTime);
+
+        const FBPageDetail = await FbPage.findOne({FbPageId: FbPageId});
+
+        await Promise.all(orders.map(async(singleOrder, index) => {
+
+            //todo save order send socket message;
+            const MinimumOrderValue = FBPageDetail.Minimum;
+            let shippingCharge = 0;
+            let items = [];
+            let Is_save = true;
+
+            if(MinimumOrderValue >= singleOrder.totalexcludeshipping) {
+                shippingCharge = FBPageDetail.ShippingMinimum;
+            }
+
+            if(singleOrder.orderitems !== null) {
+                const orderItems = singleOrder.orderitems.split('\n');
+                orderItems.map((singleItems) => {
+                    if(Is_save) {
+                        let getItemsOnly = singleItems.split(': ');
+                        getItemsOnly = getItemsOnly[1].split('  x');
+                        const qty = Number(getItemsOnly[1]);
+                        getItemsOnly = getItemsOnly[0];
+
+                        const matchKeyWord = AllKeyWord.find((data) => data.FbPageId === FbPageId && data.description.trim()
+                            .toLowerCase() === getItemsOnly.trim()
+                            .toLowerCase());
+
+                        if(matchKeyWord !== null && matchKeyWord !== undefined) {
+                            const Item = {
+                                id: matchKeyWord._id.toString(),
+                                itemName: matchKeyWord.description,
+                                qty: qty,
+                                price: matchKeyWord.price,
+                                keyword: matchKeyWord.keyword,
+                                SKU: matchKeyWord.SKU,
+                                total: Number(qty * matchKeyWord.price)
+                            };
+                            items.push(Item);
+                        } else {
+                            Is_save = false;
+                        }
+                    }
+                });
+            }
+
+            if(Is_save) {
+                const OrderFind = await Order.findOne({BoxifyOrderNumber: singleOrder.ordernumber});
+                if(!OrderFind) {
+                    let ImportOrder = new Order({
+                        FbPageId: FbPageId,
+                        BoxifyOrderNumber: singleOrder.ordernumber,
+                        Items: items,
+                        Name: singleOrder.customername,
+                        Total: singleOrder.totalexcludeshipping,
+                        Status: 'active',
+                        FirstOrderDate: currentDate.toUTCString(),
+                        MostRecentOrderDate: currentDate.toUTCString(),
+                        ShippingOption: singleOrder.shippingoption,
+                        ShippingCharge: shippingCharge,
+                        PaymentStatus: 'unpaid',
+                        Confirmed: true,
+                        Date: currentDate.toUTCString(),
+                        ShippingName: singleOrder.shippingname === null ? singleOrder.customername : singleOrder.shippingname,
+                        ShippingMobile: singleOrder.shippingphonenumber,
+                        ShippingAddress1: singleOrder.shippingaddress1,
+                        ShippingAddress2: singleOrder.shippingaddress2,
+                        ShippingPostalCode: singleOrder.shippingpostcode
+                    });
+                    try {
+                        const InsertOrder = await ImportOrder.save();
+
+                        let result = await socketPublishMessage(FbPageId, {
+                            type: 'order',
+                            data: InsertOrder
+                        });
+                        result = await socketPublishMessage('AdminUser', {
+                            type: 'order',
+                            data: InsertOrder
+                        });
+
+                        Log.writeLog(Log.eLogLevel.info, '[importOrder] : ' + JSON.stringify('Save Successfully'));
+                    } catch(error) {
+                        Log.writeLog(Log.eLogLevel.info, '[importOrder] : ' + JSON.stringify(error));
+                    }
+                }
+            } else {
+                importFailOrders.push(singleOrder);
+            }
+
+        }));
+
+        res.status(200)
+            .json({
+                result: 'your orders have been successfully imported',
+                importFailOrders: importFailOrders
+            });
+
+    } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[importOrder] : ${JSON.stringify(error)}`, uniqueId);
+        res.status(501)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+}
+
+export async function orderSearch(req, res, next) {
+    const uniqueId = getGuid();
+    try {
+        let FindOrder = await Order.findOne({BoxifyOrderNumber: req.params.id}, {_id: 1});
+        Log.writeLog(Log.eLogLevel.info, `[orderSearch][order] : ${JSON.stringify(FindOrder)}`, uniqueId);
+        if(FindOrder) {
+            res.status(200)
+                .json({
+                    orderId: FindOrder
+                });
+        } else {
+            res.status(403)
+                .json(errorJsonResponse('Order not found', 'Order not found'));
+        }
+    } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[orderSearch] : ${JSON.stringify(error)}`, uniqueId);
+        res.status(501)
+            .json(errorJsonResponse(error.toString(), error.toString()));
+    }
+}
