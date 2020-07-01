@@ -250,6 +250,7 @@ export async function checkout(req, res, next) {
             let body = {
                 amount: (FindOrder.Total + FindOrder.ShippingCharge),
                 complete_payment_url: FindOrder._id,
+                complete_checkout_url: `${config.Rapyd.complete_payment_url}/${FindOrder._id}`,
                 country: 'SG',
                 currency: 'SGD',
                 error_payment_url: config.Rapyd.error_payment_url,
@@ -274,7 +275,7 @@ export async function checkout(req, res, next) {
                     'signature': signature,
                     'timestamp': timestamp
                 },
-                url: 'https://api.rapyd.net/v1/checkout',
+                url: config.Rapyd.payment_url,
                 data: body
             };
 
