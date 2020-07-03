@@ -332,6 +332,7 @@ export async function importOrder(req, res, next) {
             let shippingCharge = 0;
             let items = [];
             let Is_save = true;
+            let total = 0;
 
             if(MinimumOrderValue >= singleOrder.totalexcludeshipping) {
                 shippingCharge = FBPageDetail.ShippingMinimum;
@@ -360,6 +361,7 @@ export async function importOrder(req, res, next) {
                                 SKU: matchKeyWord.SKU,
                                 total: Number(qty * matchKeyWord.price)
                             };
+                            total += Item.total;
                             items.push(Item);
                         } else {
                             Is_save = false;
@@ -376,7 +378,7 @@ export async function importOrder(req, res, next) {
                         BoxifyOrderNumber: singleOrder.ordernumber,
                         Items: items,
                         Name: singleOrder.customername,
-                        Total: singleOrder.totalexcludeshipping,
+                        Total: total,
                         Status: 'active',
                         FirstOrderDate: currentDate.toUTCString(),
                         MostRecentOrderDate: currentDate.toUTCString(),
