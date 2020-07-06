@@ -259,8 +259,6 @@ export async function checkout(req, res, next) {
                 },
                 payment_method_type: null,
                 payment_method_type_categories: [
-                    'card',
-                    'bank_redirect',
                     'bank_transfer'
                 ]
             };
