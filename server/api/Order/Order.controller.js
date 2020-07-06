@@ -201,7 +201,7 @@ export async function paymentCallback(req, res, next) {
         Log.writeLog(Log.eLogLevel.info, `[paymentCallback] : ${JSON.stringify(req.body)}`, uniqueId);
         const paymentResponse = req.body;
         if(paymentResponse) {
-            const orderId = paymentResponse.data.complete_payment_url;
+            const orderId = paymentResponse.data.metadata.orderId;
             if(paymentResponse.type === 'PAYMENT_COMPLETED') {
                 let UpdateOrder = await Order.findOneAndUpdate({_id: orderId}, {
                     PaymentStatus: 'paid',
@@ -254,6 +254,9 @@ export async function checkout(req, res, next) {
                 country: 'SG',
                 currency: 'SGD',
                 error_payment_url: config.Rapyd.error_payment_url,
+                metadata: {
+                    orderId: FindOrder._id
+                },
                 payment_method_type: null,
                 payment_method_type_categories: [
                     'card',
