@@ -76,119 +76,135 @@ export async function updateOrder(req, res, next) {
         const order = req.body.Order;
         const orderStatus = req.body.OrderStatus;
         const OrderId = order._id;
-        let MessageResult = 'Your order has been updated';
+        let MessageResult = 'Order has been updated';
         delete order._id;
         if(orderStatus !== '') {
             order.Status = orderStatus;
             MessageResult = 'Item has been updated';
         }
-        let placeOrder = true;
-        let ItemNotFound = [];
-        let reduceQty = [];
-
         let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
         const findOrder = await Order.findOne({_id: OrderId});
-        order.Total = findOrder.Total;
-        await Promise.all(order.Items.map(async(singleItem) => {
-            const findProduct = await Keyword.findOne({_id: singleItem.id});
-            const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
-            if(originalOrderQty.qty <= singleItem.qty) {
-                if(!(findProduct.stock >= (singleItem.qty - originalOrderQty.qty))) {
-                    placeOrder = false;
-                    ItemNotFound.push(findProduct.description);
-                }
-            } else {
-                reduceQty.push({
-                    id: singleItem.id,
-                    qty: originalOrderQty.qty - singleItem.qty
-                });
-            }
-            return true;
-        }));
 
-        if(placeOrder) {
-            let total = 0;
-            await Promise.all(order.Items.map(async(singleItem) => {
-                const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
-                let qty = 0;
-                let updateQty = null;
-                if(originalOrderQty.qty <= singleItem.qty) {
-                    qty = singleItem.qty - originalOrderQty.qty;
-                    updateQty = await Keyword.findOneAndUpdate(
-                        {
-                            _id: singleItem.id,
-                            stock: {$gte: qty}
-                        }, {
-                            $inc: {stock: -qty}
-                        }, {new: true});
-                    total += (updateQty.price * qty);
+        try {
+            if(findOrder) {
+                order.Total = findOrder.Total;
+                let total = 0;
+
+                await Promise.all(order.Items.map(async(singleItem) => {
+                    const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
+                    let qty = 0;
+                    let updateQty = null;
+
+                    if(originalOrderQty.qty !== singleItem.qty) {
+                        if(originalOrderQty.qty < singleItem.qty) {
+                            //todo change logic for update
+                            qty = singleItem.qty - originalOrderQty.qty;
+                            updateQty = await Keyword.findOneAndUpdate(
+                                {
+                                    _id: singleItem.id,
+                                    stock: {$gte: qty},
+                                    maxQty: {$gte: singleItem.qty}
+                                }, {
+                                    $inc: {stock: -qty}
+                                }, {new: true});
+                            if(updateQty) {
+                                total += (updateQty.price * qty);
+                                singleItem.total = (updateQty.price * singleItem.qty);
+                            } else {
+                                throw {
+                                    outOfStock: true,
+                                    productName: singleItem.itemName
+                                };
+                            }
+                        } else {
+                            qty = originalOrderQty.qty - singleItem.qty;
+                            updateQty = await Keyword.findOneAndUpdate(
+                                {
+                                    _id: singleItem.id,
+                                }, {
+                                    $inc: {stock: +qty}
+                                }, {new: true});
+                            total += (updateQty.price * -qty);
+                            singleItem.total = (updateQty.price * singleItem.qty);
+                        }
+
+                        let result = await socketPublishMessage(order.FbPageId, {
+                            type: 'keywordUpdate',
+                            data: updateQty
+                        });
+
+                        result = await socketPublishMessage('AdminUser', {
+                            type: 'keywordUpdate',
+                            data: updateQty
+                        });
+
+                    }
+                    return true;
+                }));
+
+                await UserDetail.findOneAndUpdate({
+                    FbSPID: order.FbSPID, ShippingMobile: null,
+                    ShippingAddress1: null,
+                    ShippingPostalCode: null
+                }, {
+                    ShippingMobile: order.ShippingMobile,
+                    ShippingAddress1: order.ShippingAddress1,
+                    ShippingPostalCode: order.ShippingPostalCode,
+                    DeliveryTimeSlot: order.DeliveryTimeSlot,
+                }, {new: true, setDefaultsOnInsert: true});
+                order.Total += total;
+
+                if(order.Total < PageDetail.Minimum) {
+                    order.ShippingCharge = PageDetail.ShippingMinimum;
                 } else {
-                    qty = originalOrderQty.qty - singleItem.qty;
-                    updateQty = await Keyword.findOneAndUpdate(
-                        {
-                            _id: singleItem.id,
-                        }, {
-                            $inc: {stock: +qty}
-                        }, {new: true});
-                    total += (updateQty.price * -qty);
+                    order.ShippingCharge = 0;
                 }
 
-                let result = await socketPublishMessage(order.FbPageId, {
-                    type: 'keywordUpdate',
-                    data: updateQty
-                });
-
-                result = await socketPublishMessage('AdminUser', {
-                    type: 'keywordUpdate',
-                    data: updateQty
-                });
-                return true;
-            }));
-            await UserDetail.findOneAndUpdate({
-                FbSPID: order.FbSPID, ShippingMobile: null,
-                ShippingAddress1: null,
-                ShippingPostalCode: null
-            }, {
-                ShippingMobile: order.ShippingMobile,
-                ShippingAddress1: order.ShippingAddress1,
-                ShippingPostalCode: order.ShippingPostalCode,
-                DeliveryTimeSlot: order.DeliveryTimeSlot,
-            }, {new: true, setDefaultsOnInsert: true});
-            order.Total += total;
-
-            if(order.Total < PageDetail.Minimum) {
-                order.ShippingCharge = PageDetail.ShippingMinimum;
-            } else {
-                order.ShippingCharge = 0;
-            }
-
-            let UpdateOrder = await Order.findOneAndUpdate({_id: OrderId}, order, {new: true, setDefaultsOnInsert: true});
-            if(UpdateOrder) {
-                let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
-                let result = await socketPublishMessage(UpdateOrder.FbPageId, {
-                    type: 'order',
-                    data: UpdateOrder
-                });
-                result = await socketPublishMessage('AdminUser', {
-                    type: 'order',
-                    data: UpdateOrder
-                });
-                res.status(200)
-                    .json({
-                        data: {
-                            Order: UpdateOrder,
-                            DeliveryTimeSlot: PageDetail.DeliveryDate
-                        },
-                        result: MessageResult
+                let UpdateOrder = await Order.findOneAndUpdate({_id: OrderId}, order, {new: true, setDefaultsOnInsert: true});
+                if(UpdateOrder) {
+                    let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
+                    let result = await socketPublishMessage(UpdateOrder.FbPageId, {
+                        type: 'order',
+                        data: UpdateOrder
                     });
+                    result = await socketPublishMessage('AdminUser', {
+                        type: 'order',
+                        data: UpdateOrder
+                    });
+                    res.status(200)
+                        .json({
+                            data: {
+                                Order: UpdateOrder,
+                                DeliveryTimeSlot: PageDetail.DeliveryDate
+                            },
+                            result: MessageResult,
+                            errorResult: null
+                        });
+                } else {
+                    res.status(400)
+                        .json(errorJsonResponse('your order has been removed', 'your order has been removed'));
+                }
             } else {
                 res.status(400)
                     .json(errorJsonResponse('your order has been removed', 'your order has been removed'));
             }
-        } else {
-            res.status(400)
-                .json(errorJsonResponse(`we don't have enough qty for these products ${JSON.stringify(ItemNotFound)}  `, `we don't have enough qty for these products ${JSON.stringify(ItemNotFound)}`));
+        } catch(error) {
+            if(error.outOfStock !== undefined && error.outOfStock !== null && error.outOfStock === true) {
+                res.status(200)
+                    .json({
+                        data: {
+                            Order: findOrder,
+                            DeliveryTimeSlot: PageDetail.DeliveryDate
+                        },
+                        result: null,
+                        errorResult: `sorry, ${error.productName} is out of stock`
+                    });
+            } else {
+                res.status(501)
+                    .json(errorJsonResponse(error.toString(), error.toString()));
+            }
         }
+
     } catch(error) {
         res.status(501)
             .json(errorJsonResponse(error.toString(), error.toString()));
