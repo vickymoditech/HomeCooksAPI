@@ -72,6 +72,7 @@ export async function order(req, res) {
 }
 
 export async function updateOrder(req, res, next) {
+    const uniqueId = getGuid();
     try {
         const order = req.body.Order;
         const orderStatus = req.body.OrderStatus;
@@ -84,6 +85,9 @@ export async function updateOrder(req, res, next) {
         }
         let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
         const findOrder = await Order.findOne({_id: OrderId});
+
+        Log.writeLog(Log.eLogLevel.info, `[updateOrder][order] : ${JSON.stringify(order)}`, uniqueId);
+        Log.writeLog(Log.eLogLevel.info, `[updateOrder][newOrder] : ${JSON.stringify(findOrder)}`, uniqueId);
 
         try {
             if(findOrder) {
@@ -189,6 +193,7 @@ export async function updateOrder(req, res, next) {
                     .json(errorJsonResponse('your order has been removed', 'your order has been removed'));
             }
         } catch(error) {
+            Log.writeLog(Log.eLogLevel.error, `[updateOrder] : ${JSON.stringify(error)}`, uniqueId);
             if(error.outOfStock !== undefined && error.outOfStock !== null && error.outOfStock === true) {
                 res.status(200)
                     .json({
@@ -206,6 +211,7 @@ export async function updateOrder(req, res, next) {
         }
 
     } catch(error) {
+        Log.writeLog(Log.eLogLevel.error, `[updateOrder] : ${JSON.stringify(error)}`, uniqueId);
         res.status(501)
             .json(errorJsonResponse(error.toString(), error.toString()));
     }
