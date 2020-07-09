@@ -54,12 +54,36 @@ export function show(req, res) {
 export async function order(req, res) {
     try {
         let FindOrder = await Order.findOne({_id: req.params.id});
+        //Todo all products
         if(FindOrder) {
             let PageDetail = await FbPage.findOne({FbPageId: FindOrder.FbPageId});
+            let allKeywords = await Keyword.find({FbPageId: FindOrder.FbPageId});
+            let Products = [];
+
+            FindOrder.Items.map(async(singleItem) => {
+                const findItem = allKeywords.find((data) => data._id.toString() === singleItem.id);
+                let index = allKeywords.indexOf(findItem);
+                allKeywords.splice(index, 1);
+            });
+
+            allKeywords.map((singleItem) => {
+                const product = {
+                    id: singleItem._id.toString(),
+                    itemName: singleItem.description,
+                    qty: 0,
+                    price: singleItem.price,
+                    keyword: singleItem.keyword,
+                    SKU: singleItem.SKU,
+                    total: 0
+                };
+                Products.push(product);
+            });
+
             res.status(200)
                 .json({
                     Order: FindOrder,
-                    DeliveryTimeSlot: PageDetail.DeliveryDate
+                    DeliveryTimeSlot: PageDetail.DeliveryDate,
+                    Products: Products
                 });
         } else {
             res.status(400)
@@ -76,15 +100,23 @@ export async function updateOrder(req, res, next) {
     try {
         const order = req.body.Order;
         const orderStatus = req.body.OrderStatus;
+        let addNewItem = null;
+        if(req.body.addNewItem !== undefined) {
+            addNewItem = req.body.addNewItem;
+        }
         const OrderId = order._id;
         let MessageResult = 'Order has been updated';
         delete order._id;
+
         if(orderStatus !== '') {
             order.Status = orderStatus;
             MessageResult = 'Item has been updated';
         }
-        let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
+
+        const PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
         const findOrder = await Order.findOne({_id: OrderId});
+        const allKeywords = await Keyword.find({FbPageId: order.FbPageId});
+        let Products = [];
 
         Log.writeLog(Log.eLogLevel.info, `[updateOrder][order] : ${JSON.stringify(order)}`, uniqueId);
         Log.writeLog(Log.eLogLevel.info, `[updateOrder][newOrder] : ${JSON.stringify(findOrder)}`, uniqueId);
@@ -94,57 +126,85 @@ export async function updateOrder(req, res, next) {
                 order.Total = findOrder.Total;
                 let total = 0;
 
-                await Promise.all(order.Items.map(async(singleItem) => {
-                    const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
-                    let qty = 0;
-                    let updateQty = null;
+                //todo add new Item
+                if(addNewItem !== null) {
+                    const updateQty = await Keyword.findOneAndUpdate(
+                        {
+                            _id: addNewItem.id,
+                            stock: {$gte: addNewItem.qty},
+                            maxQty: {$gte: addNewItem.qty}
+                        }, {
+                            $inc: {stock: -addNewItem.qty}
+                        }, {new: true});
 
-                    if(originalOrderQty.qty !== singleItem.qty) {
-                        if(originalOrderQty.qty < singleItem.qty) {
-                            //todo change logic for update
-                            qty = singleItem.qty - originalOrderQty.qty;
-                            updateQty = await Keyword.findOneAndUpdate(
-                                {
-                                    _id: singleItem.id,
-                                    stock: {$gte: qty},
-                                    maxQty: {$gte: singleItem.qty}
-                                }, {
-                                    $inc: {stock: -qty}
-                                }, {new: true});
-                            if(updateQty) {
-                                total += (updateQty.price * qty);
-                                singleItem.total = (updateQty.price * singleItem.qty);
-                            } else {
-                                throw {
-                                    outOfStock: true,
-                                    productName: singleItem.itemName
-                                };
-                            }
-                        } else {
-                            qty = originalOrderQty.qty - singleItem.qty;
-                            updateQty = await Keyword.findOneAndUpdate(
-                                {
-                                    _id: singleItem.id,
-                                }, {
-                                    $inc: {stock: +qty}
-                                }, {new: true});
-                            total += (updateQty.price * -qty);
-                            singleItem.total = (updateQty.price * singleItem.qty);
-                        }
-
-                        let result = await socketPublishMessage(order.FbPageId, {
-                            type: 'keywordUpdate',
-                            data: updateQty
-                        });
-
-                        result = await socketPublishMessage('AdminUser', {
-                            type: 'keywordUpdate',
-                            data: updateQty
-                        });
-
+                    if(updateQty) {
+                        addNewItem.total = (updateQty.price * addNewItem.qty);
+                        order.Items.push(addNewItem);
+                        total += (updateQty.price * addNewItem.qty);
+                    } else {
+                        throw {
+                            outOfStock: true,
+                            productName: addNewItem.itemName
+                        };
                     }
-                    return true;
-                }));
+                } else {
+                    await Promise.all(order.Items.map(async(singleItem) => {
+                        const originalOrderQty = findOrder.Items.find((data) => data.id === singleItem.id);
+                        let qty = 0;
+                        let updateQty = null;
+
+                        if(originalOrderQty.qty !== singleItem.qty) {
+                            if(originalOrderQty.qty < singleItem.qty) {
+                                //todo change logic for update
+                                qty = singleItem.qty - originalOrderQty.qty;
+                                updateQty = await Keyword.findOneAndUpdate(
+                                    {
+                                        _id: singleItem.id,
+                                        stock: {$gte: qty},
+                                        maxQty: {$gte: singleItem.qty}
+                                    }, {
+                                        $inc: {stock: -qty}
+                                    }, {new: true});
+                                if(updateQty) {
+                                    total += (updateQty.price * qty);
+                                    singleItem.total = (updateQty.price * singleItem.qty);
+                                } else {
+                                    throw {
+                                        outOfStock: true,
+                                        productName: singleItem.itemName
+                                    };
+                                }
+                            } else {
+                                qty = originalOrderQty.qty - singleItem.qty;
+                                updateQty = await Keyword.findOneAndUpdate(
+                                    {
+                                        _id: singleItem.id,
+                                    }, {
+                                        $inc: {stock: +qty}
+                                    }, {new: true});
+                                total += (updateQty.price * -qty);
+                                singleItem.total = (updateQty.price * singleItem.qty);
+                                if(singleItem.qty === 0) {
+                                    let index = order.Items.indexOf(singleItem);
+                                    order.Items.splice(index, 1);
+                                }
+                            }
+
+                            let result = await socketPublishMessage(order.FbPageId, {
+                                type: 'keywordUpdate',
+                                data: updateQty
+                            });
+
+                            result = await socketPublishMessage('AdminUser', {
+                                type: 'keywordUpdate',
+                                data: updateQty
+                            });
+
+                        }
+                        return true;
+                    }));
+                }
+
 
                 await UserDetail.findOneAndUpdate({
                     FbSPID: order.FbSPID, ShippingMobile: null,
@@ -166,7 +226,6 @@ export async function updateOrder(req, res, next) {
 
                 let UpdateOrder = await Order.findOneAndUpdate({_id: OrderId}, order, {new: true, setDefaultsOnInsert: true});
                 if(UpdateOrder) {
-                    let PageDetail = await FbPage.findOne({FbPageId: order.FbPageId});
                     let result = await socketPublishMessage(UpdateOrder.FbPageId, {
                         type: 'order',
                         data: UpdateOrder
@@ -175,11 +234,33 @@ export async function updateOrder(req, res, next) {
                         type: 'order',
                         data: UpdateOrder
                     });
+
+                    //Todo remove Items
+                    UpdateOrder.Items.map(async(singleItem) => {
+                        const findItem = allKeywords.find((data) => data._id.toString() === singleItem.id);
+                        let index = allKeywords.indexOf(findItem);
+                        allKeywords.splice(index, 1);
+                    });
+
+                    allKeywords.map((singleItem) => {
+                        const product = {
+                            id: singleItem._id.toString(),
+                            itemName: singleItem.description,
+                            qty: 0,
+                            price: singleItem.price,
+                            keyword: singleItem.keyword,
+                            SKU: singleItem.SKU,
+                            total: 0
+                        };
+                        Products.push(product);
+                    });
+
                     res.status(200)
                         .json({
                             data: {
                                 Order: UpdateOrder,
-                                DeliveryTimeSlot: PageDetail.DeliveryDate
+                                DeliveryTimeSlot: PageDetail.DeliveryDate,
+                                Products: Products
                             },
                             result: MessageResult,
                             errorResult: null
@@ -195,11 +276,33 @@ export async function updateOrder(req, res, next) {
         } catch(error) {
             Log.writeLog(Log.eLogLevel.error, `[updateOrder] : ${JSON.stringify(error)}`, uniqueId);
             if(error.outOfStock !== undefined && error.outOfStock !== null && error.outOfStock === true) {
+
+                //Todo remove Items
+                findOrder.Items.map(async(singleItem) => {
+                    const findItem = allKeywords.find((data) => data._id.toString() === singleItem.id);
+                    let index = allKeywords.indexOf(findItem);
+                    allKeywords.splice(index, 1);
+                });
+
+                allKeywords.map((singleItem) => {
+                    const product = {
+                        id: singleItem._id.toString(),
+                        itemName: singleItem.description,
+                        qty: 0,
+                        price: singleItem.price,
+                        keyword: singleItem.keyword,
+                        SKU: singleItem.SKU,
+                        total: 0
+                    };
+                    Products.push(product);
+                });
+
                 res.status(200)
                     .json({
                         data: {
                             Order: findOrder,
-                            DeliveryTimeSlot: PageDetail.DeliveryDate
+                            DeliveryTimeSlot: PageDetail.DeliveryDate,
+                            Products: Products
                         },
                         result: null,
                         errorResult: `sorry, ${error.productName} is out of stock`
