@@ -233,6 +233,7 @@ export async function updateOrder(req, res, next) {
                 if(find) {
                     if((order.Total + order.ShippingCharge) <= find.DiscountAmount) {
                         order.DiscountAmount = order.Total + order.ShippingCharge;
+                        order.PaymentStatus = 'paid';
                         order.Coupon = find.PromoCode;
                     } else {
                         order.DiscountAmount = find.DiscountAmount;
