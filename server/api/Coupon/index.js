@@ -1,11 +1,13 @@
-var express = require('express');
-var controller = require('./Coupon.controller');
+let express = require('express');
+let controller = require('./Coupon.controller');
+import validation from '../Validation';
 
-var router = express.Router();
+let router = express.Router();
 
-router.get('/:id', controller.show);
-router.post('/', controller.create);
-router.put('/', controller.update);
-router.delete('/', controller.destroy);
+router.get('/FbPage/:FbPageId/GetDetail/:PromoCode', validation.validateAuthorization, controller.getDetail);
+router.get('/:id', validation.validateAuthorization, controller.show);
+router.post('/', validation.validateAuthorization, controller.create);
+router.put('/', validation.validateAuthorization, controller.update);
+router.delete('/', validation.validateAuthorization, controller.destroy);
 
 module.exports = router;

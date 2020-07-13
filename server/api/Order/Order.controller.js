@@ -7,6 +7,7 @@ import {socketPublishMessage} from '../Socket';
 import Log from '../../config/Log';
 import config from '../../config/environment';
 import axios from 'axios/index';
+import Coupon from '../Coupon/Coupon.model';
 
 let moment = require('moment-timezone');
 
@@ -117,9 +118,14 @@ export async function updateOrder(req, res, next) {
         const findOrder = await Order.findOne({_id: OrderId});
         const allKeywords = await Keyword.find({FbPageId: order.FbPageId});
         let Products = [];
+        let find = null;
 
         Log.writeLog(Log.eLogLevel.info, `[updateOrder][order] : ${JSON.stringify(order)}`, uniqueId);
         Log.writeLog(Log.eLogLevel.info, `[updateOrder][newOrder] : ${JSON.stringify(findOrder)}`, uniqueId);
+
+        if(order.Coupon !== null && order !== '') {
+            find = await Coupon.findOne({FbPageId: order.FbPageId, PromoCode: order.Coupon});
+        }
 
         try {
             if(findOrder) {
@@ -222,6 +228,16 @@ export async function updateOrder(req, res, next) {
                     order.ShippingCharge = PageDetail.ShippingMinimum;
                 } else {
                     order.ShippingCharge = 0;
+                }
+
+                if(find) {
+                    if((order.Total + order.ShippingCharge) <= find.DiscountAmount) {
+                        order.DiscountAmount = order.Total + order.ShippingCharge;
+                        order.Coupon = find.PromoCode;
+                    } else {
+                        order.DiscountAmount = find.DiscountAmount;
+                        order.Coupon = find.PromoCode;
+                    }
                 }
 
                 let UpdateOrder = await Order.findOneAndUpdate({_id: OrderId}, order, {new: true, setDefaultsOnInsert: true});
@@ -373,7 +389,7 @@ export async function checkout(req, res, next) {
             let secret_key = config.Rapyd.secret_key;     // Never transmit the secret key by itself.
 
             let body = {
-                amount: (FindOrder.Total + FindOrder.ShippingCharge),
+                amount: ((FindOrder.Total + FindOrder.ShippingCharge) - FindOrder.DiscountAmount),
                 complete_payment_url: FindOrder._id,
                 complete_checkout_url: `${config.Rapyd.complete_checkout_url}/${FindOrder._id}`,
                 country: 'SG',

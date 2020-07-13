@@ -74,6 +74,17 @@ export function show(req, res) {
         .catch(handleError(res));
 }
 
+export async function getDetail(req, res) {
+    const find = await Coupon.findOne({FbPageId: req.params.FbPageId, PromoCode: req.params.PromoCode});
+    if(find) {
+        res.status(200)
+            .json({data: find, result: 'Coupon Successfully Applied'});
+    } else {
+        res.status(400)
+            .json(errorJsonResponse('Invalid Coupon', 'Invalid Coupon'));
+    }
+}
+
 // Creates a new Coupon in the DB
 export async function create(req, res) {
     try {

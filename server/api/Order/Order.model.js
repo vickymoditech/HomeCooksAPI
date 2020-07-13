@@ -33,7 +33,9 @@ let OrderSchema = new mongoose.Schema({
     ShippingPostalCode: String,
     DeliveryTimeSlot: mongoose.Schema.Types.Mixed,
     CheckoutResponse: mongoose.Schema.Types.Mixed,
-    PaymentResponse: mongoose.Schema.Types.Mixed
+    PaymentResponse: mongoose.Schema.Types.Mixed,
+    Coupon: String,
+    DiscountAmount: {type: Number, default: 0}
 }, {collection: 'fbliveorder'});
 
 OrderSchema.plugin(findOrCreate);
