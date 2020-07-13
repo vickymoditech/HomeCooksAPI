@@ -102,31 +102,23 @@ export async function create(req, res) {
 // Upserts the given Coupon in the DB at the specified ID
 export async function update(req, res) {
     try {
-        const find = await Coupon.findOne({FbPageId: req.body.FbPageId, PromoCode: req.body.PromoCode});
-        if(find) {
-            res.status(400)
-                .json(errorJsonResponse('This Coupon already has been registered', 'This Coupon already has been registered'));
-        } else {
-            Coupon.findOneAndUpdate({_id: req.body._id}, {
-                    PromoCode: req.body.PromoCode,
-                    DiscountAmount: req.body.DiscountAmount,
-                }, {new: true}
-            )
-                .then(async(UpdateKeywords, err) => {
-                    if(!err) {
-                        res.status(200)
-                            .json({data: UpdateKeywords, result: 'Update Successfully'});
-                    } else {
-                        res.status(400)
-                            .json(errorJsonResponse(err.toString(), err.toString()));
-                    }
-                });
-        }
+        Coupon.findOneAndUpdate({_id: req.body._id}, {
+            PromoCode: req.body.PromoCode,
+            DiscountAmount: req.body.DiscountAmount,
+        }, {new: true})
+            .then(async(UpdateKeywords, err) => {
+                if(!err) {
+                    res.status(200)
+                        .json({data: UpdateKeywords, result: 'Update Successfully'});
+                } else {
+                    res.status(400)
+                        .json(errorJsonResponse(err.toString(), err.toString()));
+                }
+            });
     } catch(error) {
         res.status(500)
             .json(errorJsonResponse(error.toString(), error.toString()));
     }
-
 }
 
 // Deletes a Coupon from the DB

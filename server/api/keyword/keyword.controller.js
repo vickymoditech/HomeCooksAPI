@@ -75,33 +75,27 @@ export async function create(req, res) {
 // Update Keyword in the DB
 export async function update(req, res) {
     try {
-        const findKeyword = await Keyword.findOne({FbPageId: req.body.FbPageId, keyword: req.body.keyword});
-        if(findKeyword) {
-            res.status(400)
-                .json(errorJsonResponse('This Keyword already has been registered', 'This Keyword already has been registered'));
-        } else {
-            Keyword.findOneAndUpdate({_id: req.body._id}, {
-                    description: req.body.description,
-                    keyword: req.body.keyword,
-                    price: req.body.price,
-                    stock: req.body.stock,
-                    reply_message: req.body.reply_message,
-                    FbPageId: req.body.FbPageId,
-                    SKU: req.body.SKU,
-                    maxQty: req.body.maxQty
-                }, {new: true}
-            )
-                .then(async(UpdateKeywords, err) => {
-                    if(!err) {
-                        await GetallKeywords();
-                        res.status(200)
-                            .json({data: UpdateKeywords, result: 'Update Successfully'});
-                    } else {
-                        res.status(400)
-                            .json(errorJsonResponse(err.toString(), err.toString()));
-                    }
-                });
-        }
+        Keyword.findOneAndUpdate({_id: req.body._id}, {
+                description: req.body.description,
+                keyword: req.body.keyword,
+                price: req.body.price,
+                stock: req.body.stock,
+                reply_message: req.body.reply_message,
+                FbPageId: req.body.FbPageId,
+                SKU: req.body.SKU,
+                maxQty: req.body.maxQty
+            }, {new: true}
+        )
+            .then(async(UpdateKeywords, err) => {
+                if(!err) {
+                    await GetallKeywords();
+                    res.status(200)
+                        .json({data: UpdateKeywords, result: 'Update Successfully'});
+                } else {
+                    res.status(400)
+                        .json(errorJsonResponse(err.toString(), err.toString()));
+                }
+            });
     } catch(error) {
         res.status(500)
             .json(errorJsonResponse(error.toString(), error.toString()));
