@@ -454,28 +454,31 @@ async function order(singleComment, FbPageId, FbAccessToken, UserDetails, Is_liv
                                                 ShippingPostalCode: result.doc.ShippingPostalCode,
                                             }, {upsert: true, new: true, setDefaultsOnInsert: true});
                                         }
+
                                         if(InsertBookingItems) {
 
-                                            let AddShippingCharge = await Order.findOneAndUpdate({
-                                                _id: InsertBookingItems._id,
-                                                Total: {
-                                                    $lt: SinglePage.Minimum
-                                                }
-                                            }, {
-                                                ShippingCharge: SinglePage.ShippingMinimum
-                                            }, {new: true, setDefaultsOnInsert: true});
-
-                                            if(!AddShippingCharge) {
-                                                AddShippingCharge = await Order.findOneAndUpdate({
+                                            if(SinglePage.Minimum && SinglePage.ShippingMinimum) {
+                                                let AddShippingCharge = await Order.findOneAndUpdate({
                                                     _id: InsertBookingItems._id,
                                                     Total: {
-                                                        $gte: SinglePage.Minimum
+                                                        $lt: SinglePage.Minimum
                                                     }
                                                 }, {
-                                                    ShippingCharge: 0
+                                                    ShippingCharge: SinglePage.ShippingMinimum
                                                 }, {new: true, setDefaultsOnInsert: true});
+
+                                                if(!AddShippingCharge) {
+                                                    AddShippingCharge = await Order.findOneAndUpdate({
+                                                        _id: InsertBookingItems._id,
+                                                        Total: {
+                                                            $gte: SinglePage.Minimum
+                                                        }
+                                                    }, {
+                                                        ShippingCharge: 0
+                                                    }, {new: true, setDefaultsOnInsert: true});
+                                                }
+                                                InsertBookingItems = AddShippingCharge;
                                             }
-                                            InsertBookingItems = AddShippingCharge;
 
                                             let result = await socketPublishMessage(FbPageId, {
                                                 type: 'order',
