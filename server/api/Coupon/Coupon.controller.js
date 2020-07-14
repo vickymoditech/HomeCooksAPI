@@ -12,6 +12,7 @@ import {applyPatch} from 'fast-json-patch';
 import Coupon from './Coupon.model';
 import {errorJsonResponse} from '../../config/commonHelper';
 import Keyword from '../keyword/keyword.model';
+import Order from '../Order/Order.model';
 
 function respondWithResult(res, statusCode) {
     statusCode = statusCode || 200;
@@ -75,14 +76,36 @@ export function show(req, res) {
 }
 
 export async function getDetail(req, res) {
-    const find = await Coupon.findOne({FbPageId: req.params.FbPageId, PromoCode: req.params.PromoCode});
-    if(find) {
-        res.status(200)
-            .json({data: find, result: 'Coupon Successfully Applied'});
-    } else {
-        res.status(400)
-            .json(errorJsonResponse('Invalid Coupon', 'Invalid Coupon'));
-    }
+    Coupon.findOneAndUpdate({FbPageId: req.params.FbPageId, PromoCode: req.params.PromoCode, Applied: false}, {
+        Applied: true
+    }, {new: true})
+        .then(async(Update, err) => {
+            if(!err && Update) {
+                const find = await Order.findOne({_id: req.params.orderNumber});
+                if(find) {
+                    let discount = 0;
+                    if((find.Total + find.ShippingCharge) <= Update.DiscountAmount) {
+                        discount = find.Total + find.ShippingCharge;
+                    } else {
+                        discount = Update.DiscountAmount;
+                    }
+
+                    const UpdateOrder = await Order.findOneAndUpdate({_id: req.params.orderNumber}, {
+                        DiscountAmount: discount,
+                        Coupon: Update.PromoCode
+                    }, {new: true, setDefaultsOnInsert: true});
+                    res.status(200)
+                        .json({data: UpdateOrder, result: 'Coupon Successfully Applied'});
+
+                } else {
+                    res.status(400)
+                        .json(errorJsonResponse('Your Order has been removed', 'Your Order has been removed'));
+                }
+            } else {
+                res.status(400)
+                    .json(errorJsonResponse('Invalid Coupon', 'Invalid Coupon'));
+            }
+        });
 }
 
 // Creates a new Coupon in the DB

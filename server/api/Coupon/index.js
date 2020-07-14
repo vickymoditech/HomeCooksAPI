@@ -4,7 +4,7 @@ import validation from '../Validation';
 
 let router = express.Router();
 
-router.get('/FbPage/:FbPageId/GetDetail/:PromoCode', validation.validateAuthorization, controller.getDetail);
+router.get('/FbPage/:FbPageId/GetDetail/:PromoCode/Order/:orderNumber', validation.validateAuthorization, controller.getDetail);
 router.get('/:id', validation.validateAuthorization, controller.show);
 router.post('/', validation.validateAuthorization, controller.create);
 router.put('/', validation.validateAuthorization, controller.update);
