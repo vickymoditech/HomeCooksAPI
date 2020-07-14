@@ -262,22 +262,22 @@ async function getAllComments(FbPageId, FbPostId, FbPageAccessToken, AllComments
         if(SinglePage && SinglePageCheck) {
             let api = {
                 method: 'GET',
-                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000`
+                url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=5000`
             };
-            if(nextURL !== null && Is_next === true) {
-                console.log('after');
-                api = {
-                    method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000&after=${nextURL}`
-                };
-            }
-            if(backURL !== null && Is_next === false) {
-                console.log('before');
-                api = {
-                    method: 'GET',
-                    url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000&before=${backURL}`
-                };
-            }
+            // if(nextURL !== null && Is_next === true) {
+            //     console.log('after');
+            //     api = {
+            //         method: 'GET',
+            //         url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000&after=${nextURL}`
+            //     };
+            // }
+            // if(backURL !== null && Is_next === false) {
+            //     console.log('before');
+            //     api = {
+            //         method: 'GET',
+            //         url: `${config.FbAPP.Base_API_URL}/${FbPostId}/comments?access_token=${FbPageAccessToken}&limit=2000&before=${backURL}`
+            //     };
+            // }
             const posts = await axios(api);
             console.log(posts.data.data.length);
             Log.writeLog(Log.eLogLevel.info, `[getAllComments][${FbPostId}] : ${JSON.stringify(api)}`, uniqueId);
