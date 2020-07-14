@@ -458,6 +458,7 @@ export async function importOrder(req, res, next) {
         const orders = req.body.order;
         const AllKeyWord = getCache(KEY_WORDS);
         let importFailOrders = [];
+        let outOfStockOrder = [];
 
         Log.writeLog(Log.eLogLevel.info, `[importOrder][importData] : ${JSON.stringify(orders)}`, uniqueId);
 
@@ -475,6 +476,7 @@ export async function importOrder(req, res, next) {
             let shippingCharge = 0;
             let items = [];
             let Is_save = true;
+            let Is_outOfStock = false;
             let total = 0;
 
             if(MinimumOrderValue >= singleOrder.totalexcludeshipping) {
@@ -483,7 +485,7 @@ export async function importOrder(req, res, next) {
 
             if(singleOrder.orderitems !== null) {
                 const orderItems = singleOrder.orderitems.split('\n');
-                orderItems.map((singleItems) => {
+                await Promise.all(orderItems.map(async(singleItems) => {
                     if(Is_save) {
                         let getItemsOnly = singleItems.split(': ');
                         getItemsOnly = getItemsOnly[1].split('  x');
@@ -494,23 +496,62 @@ export async function importOrder(req, res, next) {
                             .toLowerCase() === getItemsOnly.trim()
                             .toLowerCase());
 
+                        //Todo work here. same item combine into the single item
                         if(matchKeyWord !== null && matchKeyWord !== undefined) {
-                            const Item = {
-                                id: matchKeyWord._id.toString(),
-                                itemName: matchKeyWord.description,
-                                qty: qty,
-                                price: matchKeyWord.price,
-                                keyword: matchKeyWord.keyword,
-                                SKU: matchKeyWord.SKU,
-                                total: Number(qty * matchKeyWord.price)
-                            };
-                            total += Item.total;
-                            items.push(Item);
+
+                            const updateQty = await Keyword.findOneAndUpdate(
+                                {
+                                    _id: matchKeyWord._id,
+                                    stock: {$gte: qty},
+                                    maxQty: {$gte: qty}
+                                }, {
+                                    $inc: {stock: -qty}
+                                }, {new: true});
+
+                            //Todo find items.
+                            let findItem = items.find((data) => data.itemName.trim()
+                                .toLowerCase() === matchKeyWord.description.trim()
+                                .toLowerCase());
+
+                            if(findItem) {
+                                findItem.qty += qty;
+                                findItem.total += Number(qty * matchKeyWord.price);
+                            } else {
+                                if(updateQty) {
+
+                                    //todo send socket message
+                                    let result = await socketPublishMessage(FbPageId, {
+                                        type: 'keywordUpdate',
+                                        data: updateQty
+                                    });
+
+                                    result = await socketPublishMessage('AdminUser', {
+                                        type: 'keywordUpdate',
+                                        data: updateQty
+                                    });
+
+                                    const Item = {
+                                        id: matchKeyWord._id.toString(),
+                                        itemName: matchKeyWord.description,
+                                        qty: qty,
+                                        price: matchKeyWord.price,
+                                        keyword: matchKeyWord.keyword,
+                                        SKU: matchKeyWord.SKU,
+                                        total: Number(qty * matchKeyWord.price)
+                                    };
+                                    total += Item.total;
+                                    items.push(Item);
+                                } else {
+                                    Is_save = false;
+                                    Is_outOfStock = true;
+                                }
+                            }
                         } else {
                             Is_save = false;
                         }
                     }
-                });
+                    return true;
+                }));
             }
 
             if(Is_save) {
@@ -554,7 +595,11 @@ export async function importOrder(req, res, next) {
                     }
                 }
             } else {
-                importFailOrders.push(singleOrder);
+                if(Is_outOfStock) {
+                    outOfStockOrder.push(singleOrder);
+                } else {
+                    importFailOrders.push(singleOrder);
+                }
             }
 
         }));
@@ -562,7 +607,8 @@ export async function importOrder(req, res, next) {
         res.status(200)
             .json({
                 result: 'your orders have been successfully imported',
-                importFailOrders: importFailOrders
+                importFailOrders: importFailOrders,
+                outOfStockOrder: outOfStockOrder
             });
 
     } catch(error) {
