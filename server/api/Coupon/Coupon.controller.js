@@ -76,7 +76,12 @@ export function show(req, res) {
 }
 
 export async function getDetail(req, res) {
-    Coupon.findOneAndUpdate({FbPageId: req.params.FbPageId, PromoCode: req.params.PromoCode, Applied: false}, {
+    Coupon.findOneAndUpdate({
+        FbPageId: req.params.FbPageId,
+        PromoCode: req.params.PromoCode.trim()
+            .toLowerCase(),
+        Applied: false
+    }, {
         Applied: true
     }, {new: true})
         .then(async(Update, err) => {
@@ -116,6 +121,7 @@ export async function create(req, res) {
             res.status(400)
                 .json(errorJsonResponse('This Coupon already has been registered', 'This Coupon already has been registered'));
         } else {
+            req.body.PromoCode = req.body.PromoCode.trim().toLowerCase();
             Coupon.create(req.body)
                 .then(async(InsertKeywords, err) => {
                     if(!err) {
